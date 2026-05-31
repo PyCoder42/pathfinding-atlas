@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pathfinding Atlas — How routing algorithms really work</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23f5b942'/><rect x='12' y='12' width='76' height='76' rx='16' fill='%234f86f7'/></svg>" />
+</head>
+<body>
+  <header class="topbar">
+    <span class="brand"><span class="logo"></span> Pathfinding Atlas</span>
+    <nav>
+      <a href="index.html" class="active">Home</a>
+      <a href="map.html">Map</a>
+      <a href="graph.html">Graphs</a>
+      <a href="learn.html">Learn</a>
+    </nav>
+    <span class="spacer"></span>
+    <span class="ghost">Dijkstra · A* · Bidirectional · ALT · CH · CCH</span>
+  </header>
+
+  <section class="hero">
+    <h1>How does <span class="grad">Google Maps</span> actually work?</h1>
+    <p class="lead">
+      An interactive lab for the algorithms behind modern routing — from textbook
+      Dijkstra all the way to Customizable Contraction Hierarchies. Watch them
+      race on a fake Google-Maps road network and on enormous weighted graphs,
+      then read the guides that explain exactly what you're seeing.
+    </p>
+    <div class="cta">
+      <a class="btn primary" href="map.html">🗺️ Explore the Map</a>
+      <a class="btn" href="graph.html">🕸️ Attack the Graphs</a>
+      <a class="btn" href="learn.html">📖 Read the Guides</a>
+    </div>
+  </section>
+
+  <section class="cards">
+    <a class="card" href="map.html">
+      <div class="emoji">🗺️</div>
+      <h3>Real-world mapping</h3>
+      <p>A procedurally generated road network with named cities, highways,
+      arterials and local streets — weighted by travel time, so the shortest
+      path is the <b>fastest route</b>. Pick two cities, add rush-hour traffic,
+      and race the algorithms a real router would use.</p>
+    </a>
+    <a class="card" href="graph.html">
+      <div class="emoji">🕸️</div>
+      <h3>Weighted graphs &amp; mazes</h3>
+      <p>Mazes, weighted terrain grids, huge geometric meshes, and even a
+      negative-weight graph for Bellman–Ford. Scale them into the hundreds of
+      thousands of nodes and feel why preprocessing wins.</p>
+    </a>
+  </section>
+
+  <section class="features">
+    <h2>What's inside</h2>
+    <div class="feature-grid">
+      <div class="feature"><div class="ic">🏁</div><h4>Side-by-side races</h4><p>Run any subset of 10 algorithms together in synchronized small-multiples, or one at a time in full detail.</p></div>
+      <div class="feature"><div class="ic">📊</div><h4>Live metrics</h4><p>Nodes settled, frontier peak, path cost, hops, query time and preprocessing time — updated as the search runs.</p></div>
+      <div class="feature"><div class="ic">⏱️</div><h4>Benchmark mode</h4><p>Average query time over many random routes, with speedups vs Dijkstra and an automatic optimality check.</p></div>
+      <div class="feature"><div class="ic">🔥</div><h4>Heatmaps &amp; playback</h4><p>Step, pause, scrub speed, toggle the frontier, and switch on a distance heatmap of the explored region.</p></div>
+      <div class="feature"><div class="ic">🚦</div><h4>Live traffic</h4><p>Change traffic on the map and watch why CCH re-customizes instead of rebuilding from scratch.</p></div>
+      <div class="feature"><div class="ic">🎓</div><h4>Full guides</h4><p>In-app explanations for every algorithm plus eight long-form articles and a glossary on the Learn page.</p></div>
+    </div>
+  </section>
+
+  <section class="algos-strip">
+    <h2>Ten algorithms, one common engine</h2>
+    <div class="algo-pills" id="pills"></div>
+  </section>
+
+  <div class="footer">
+    Built as an educational sandbox, inspired by Veritasium's
+    <i>"How Does Google Maps Actually Work?"</i> — extended with the real
+    techniques (ALT, Contraction Hierarchies, Customizable CH) used in
+    production routers.<br />
+    Pure HTML/CSS/JS — runs on any static server (VS Code Live Server).
+  </div>
+
+  <script type="module">
+    import { ALGORITHMS } from './js/algorithms/index.js';
+    const pills = document.getElementById('pills');
+    for (const a of ALGORITHMS) {
+      const span = document.createElement('span');
+      span.className = 'algo-pill';
+      span.innerHTML = `<span class="swatch" style="background:${a.color}"></span>${a.name}`;
+      pills.append(span);
+    }
+  </script>
+</body>
+</html>

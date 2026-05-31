@@ -1,0 +1,11 @@
+{
+  "name": "pathfinding-atlas",
+  "version": "1.0.0",
+  "description": "Interactive educational comparison of shortest-path / routing algorithms (Dijkstra, A*, bidirectional, ALT, CH, CCH) on fake road maps and large weighted graphs.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node tests/correctness.js",
+    "serve": "python3 -m http.server 8000"
+  }
+}

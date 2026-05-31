@@ -1,0 +1,12 @@
+# Dependencies (the app itself is dependency-free; jsdom is only for tests)
+node_modules/
+package-lock.json
+
+# OS / editor
+.DS_Store
+*.swp
+.vscode/
+
+# Logs / scratch
+*.log
+/tmp/
