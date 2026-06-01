@@ -7,6 +7,8 @@ import { generateGrid } from '../generators/grid.js';
 import { generateRandomGraph, generateNegativeGraph } from '../generators/random-graph.js';
 import { el, clear } from '../ui/dom.js';
 import { fmtInt } from '../core/utils.js';
+import { installTools } from '../ui/tools.js';
+import { readStateFromURL } from '../ui/share.js';
 
 const root = document.querySelector('#app');
 const vis = new Visualizer(root, {
@@ -158,9 +160,35 @@ function generate() {
     const { n } = sizeFor('random', t);
     result = generateRandomGraph(n, { seed: state.seed });
   }
-  vis.setScenario(result);
+  return vis.setScenario(result);
 }
 
 vis.onEndpointsChanged = () => {};
-buildControls();
-generate();
+
+// Shareable scenario state + scaling-benchmark config (consumed by tools.js).
+vis.shareState = () => ({ section: 'graph', st: { ...state }, start: vis.start, goal: vis.goal, selected: [...vis.selected], focus: vis.focus });
+vis.scalingConfig = {
+  sizes: [400, 1500, 5000, 15000, 40000],
+  makeGraph: (n) => generateRandomGraph(n, { seed: state.seed }),
+};
+
+installTools(vis);
+
+(async () => {
+  const shared = readStateFromURL();
+  if (shared && shared.section === 'graph' && shared.st) Object.assign(state, shared.st);
+  buildControls();
+  await generate();
+  if (shared && shared.section === 'graph') {
+    if (Array.isArray(shared.selected) && shared.selected.length) {
+      vis.selected = new Set(shared.selected);
+      vis.focus = shared.focus || [...vis.selected][0];
+      vis._syncAlgoChecks();
+      vis._buildMetrics();
+      vis._renderExplain();
+    }
+    if (Number.isInteger(shared.start) && Number.isInteger(shared.goal)) {
+      vis.setEndpoints(shared.start, shared.goal);
+    }
+  }
+})();

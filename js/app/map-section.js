@@ -4,6 +4,8 @@ import { Visualizer } from '../ui/visualizer.js';
 import { generateMap } from '../generators/map.js';
 import { clearAux } from '../core/runner.js';
 import { el, clear } from '../ui/dom.js';
+import { installTools } from '../ui/tools.js';
+import { readStateFromURL } from '../ui/share.js';
 
 const root = document.querySelector('#app');
 const vis = new Visualizer(root, {
@@ -123,5 +125,31 @@ vis.onEndpointsChanged = (s, g) => {
   if (goalSel) goalSel.value = String(g);
 };
 
-buildControls();
-generate();
+vis.shareState = () => ({ section: 'map', st: { ...state }, start: vis.start, goal: vis.goal, selected: [...vis.selected], focus: vis.focus });
+vis.scalingConfig = {
+  sizes: [400, 900, 1600, 2600, 4000],
+  makeGraph: (n) => generateMap({ seed: state.seed, nodes: n, cityCount: state.cities }),
+};
+
+installTools(vis);
+
+(async () => {
+  const shared = readStateFromURL();
+  if (shared && shared.section === 'map' && shared.st) Object.assign(state, shared.st);
+  buildControls();
+  await generate();
+  if (shared && shared.section === 'map') {
+    if (Array.isArray(shared.selected) && shared.selected.length) {
+      vis.selected = new Set(shared.selected);
+      vis.focus = shared.focus || [...vis.selected][0];
+      vis._syncAlgoChecks();
+      vis._buildMetrics();
+      vis._renderExplain();
+    }
+    if (Number.isInteger(shared.start) && Number.isInteger(shared.goal)) {
+      vis.setEndpoints(shared.start, shared.goal);
+      if (startSel) startSel.value = String(shared.start);
+      if (goalSel) goalSel.value = String(shared.goal);
+    }
+  }
+})();

@@ -50,6 +50,7 @@ export class Visualizer {
     this.options = { heatmap: false, showFrontier: true, showEdges: true, showLabels: true };
 
     this.onEndpointsChanged = null; // section hook
+    this.onScenarioChange = null; // fired after setScenario (tools rebind here)
 
     this._buildAlgoPanel();
     this._buildRunPanel();
@@ -371,6 +372,13 @@ export class Visualizer {
     await this._mountRenderers([...this.selected].length ? [...this.selected] : ['dijkstra']);
     this._buildMetrics();
     this._status(label || 'Scenario loaded. Press Play.');
+    if (this.onScenarioChange) this.onScenarioChange();
+  }
+
+  // The single full-size renderer (present in single/animate mode), used by the
+  // editor and preprocessing view.
+  get mainRenderer() {
+    return this.renderers && this.renderers.length === 1 ? this.renderers[0] : null;
   }
 
   setEndpoints(start, goal) {
