@@ -79,6 +79,7 @@ export function generateGrid(cols, rows, opts = {}) {
   g.terrain = terrain;
   g.maxTerrain = 1;
   g.passable = passable;
+  g.terrainK = 9; // edge weight uses cellCost = 1 + terrain*K; exposed for the editor
 
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {

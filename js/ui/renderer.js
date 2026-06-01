@@ -63,6 +63,7 @@ export class Renderer {
     this.start = -1;
     this.goal = -1;
     this.hover = -1;
+    this.annotations = null; // CH/CCH preprocessing overlay (shortcuts + ranks)
 
     this.colors = { fwd: '#4f86f7', bwd: '#f5a623', path: PALETTE.pathCore };
     this.options = {
@@ -75,6 +76,13 @@ export class Renderer {
 
     this._index = null; // spatial hash for hit-testing (non-grid)
     this._interaction = null;
+    this._interactionPaused = false; // editor pauses pan/click while painting
+  }
+
+  // Pause pan/click handling (wheel-zoom still works) — used by the editor so
+  // dragging paints cells instead of panning the view.
+  pauseInteraction(paused) {
+    this._interactionPaused = paused;
   }
 
   setGraph(graph) {
@@ -475,9 +483,52 @@ export class Renderer {
     ctx.drawImage(this._base, 0, 0, this._cssW, this._cssH);
     ctx.drawImage(this._overlay, 0, 0, this._cssW, this._cssH);
 
+    if (this.annotations) this._drawAnnotations(ctx);
     this._drawPath(ctx);
     this._drawMarkers(ctx);
     this._drawHover(ctx);
+  }
+
+  // Annotation layer for the CH/CCH preprocessing view:
+  //   { shortcuts:[{u,v}], rank:Int32Array|null, maxRank:number }
+  // Shortcuts are drawn as gold arcs; if rank is given, nodes are tinted by
+  // their contraction importance (low = cool, high = hot).
+  setAnnotations(ann) {
+    this.annotations = ann;
+  }
+
+  _drawAnnotations(ctx) {
+    const g = this.graph;
+    const a = this.annotations;
+    if (!g) return;
+    if (a.rank) {
+      const mr = a.maxRank || 1;
+      for (let i = 0; i < g.n; i++) {
+        if (a.rank[i] < 0) continue;
+        if (a.revealRank !== undefined && a.rank[i] > a.revealRank) continue;
+        const [x, y] = this.worldToScreen(g.x[i], g.y[i]);
+        if (x < 0 || y < 0 || x > this._cssW || y > this._cssH) continue;
+        ctx.beginPath();
+        ctx.fillStyle = heatColor(a.rank[i] / mr);
+        ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    if (a.shortcuts && a.shortcuts.length) {
+      ctx.strokeStyle = 'rgba(245,185,66,0.5)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      const n = a.shortcuts.length;
+      const start = Math.max(0, n - 4000); // cap drawn arcs for performance
+      for (let k = start; k < n; k++) {
+        const s = a.shortcuts[k];
+        const [ax, ay] = this.worldToScreen(g.x[s.u], g.y[s.u]);
+        const [bx, by] = this.worldToScreen(g.x[s.v], g.y[s.v]);
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(bx, by);
+      }
+      ctx.stroke();
+    }
   }
 
   _drawPath(ctx) {
@@ -601,12 +652,14 @@ export class Renderer {
     let lastY = 0;
 
     const onDown = (e) => {
+      if (this._interactionPaused) return;
       dragging = true;
       moved = false;
       lastX = e.offsetX;
       lastY = e.offsetY;
     };
     const onMove = (e) => {
+      if (this._interactionPaused) return;
       if (dragging) {
         const dx = e.offsetX - lastX;
         const dy = e.offsetY - lastY;
