@@ -245,7 +245,13 @@ input[type="checkbox"] { accent-color: var(--accent-2); width: 15px; height: 15p
    ========================================================================== */
 .hero { max-width: 1100px; margin: 0 auto; padding: 70px 24px 30px; text-align: center; }
 .hero h1 { font-size: 46px; letter-spacing: -1px; margin-bottom: 14px; }
-.hero h1 .grad { background: linear-gradient(90deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.hero h1 .gmaps { font-weight: inherit; }
+/* Official Google brand colors: G-o-o-g-l-e in blue/red/yellow/blue/green/red, "Maps" in Google grey */
+.hero h1 .c-b { color: #4285F4; }
+.hero h1 .c-r { color: #EA4335; }
+.hero h1 .c-y { color: #FBBC05; }
+.hero h1 .c-g { color: #34A853; }
+.hero h1 .c-m { color: #9AA0A6; }
 .hero p.lead { font-size: 18px; color: var(--muted); max-width: 720px; margin: 0 auto 26px; line-height: 1.6; }
 .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 .cta .btn { padding: 12px 20px; font-size: 15px; }
