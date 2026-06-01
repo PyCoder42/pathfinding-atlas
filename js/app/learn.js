@@ -2,7 +2,9 @@
 // deep-dives (from EXPLANATIONS), and the glossary. Hash-routed.
 
 import { ARTICLES, GLOSSARY } from '../content/articles.js';
-import { EXPLANATIONS } from '../content/explanations.js';
+import { EXPLANATIONS as EXPL_BASE } from '../content/explanations.js';
+import { EXPLANATIONS_EXTRA } from '../content/explanations-extra.js';
+const EXPLANATIONS = { ...EXPL_BASE, ...EXPLANATIONS_EXTRA };
 import { ALGORITHMS } from '../algorithms/index.js';
 import { renderMarkdown } from '../ui/md.js';
 import { el, clear } from '../ui/dom.js';

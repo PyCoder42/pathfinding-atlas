@@ -58,6 +58,14 @@ export function installTools(vis) {
 
   // ── Edit ────────────────────────────────────────────────────────────────
   const editBtn = el('button', { class: 'btn small', onclick: onEdit }, '✏️ Edit');
+  async function ensureSingle() {
+    if (!vis.mainRenderer) {
+      await vis._mountRenderers([vis.focus || 'dijkstra']);
+      rebind();
+    } else if (!editor || !preprocess) {
+      rebind();
+    }
+  }
   async function onEdit() {
     if (!vis.graph || !vis.graph.grid) {
       vis._status('Editing is available for grid & maze scenarios.');
@@ -69,11 +77,7 @@ export function installTools(vis) {
       toolStrip.style.display = 'none';
       return;
     }
-    // ensure a single editable canvas
-    if (!vis.mainRenderer) {
-      await vis._mountRenderers([vis.focus || 'dijkstra']);
-      rebind();
-    }
+    await ensureSingle(); // single editable canvas + fresh editor/preprocess
     if (!editor) return;
     editor.enable('wall');
     editBtn.classList.add('active');
@@ -114,10 +118,8 @@ export function installTools(vis) {
       return;
     }
     if (editor && editor.active) onEdit();
-    if (!vis.mainRenderer) {
-      await vis._mountRenderers([id]);
-      rebind();
-    }
+    await ensureSingle();
+    if (!preprocess) { vis._status('Preprocessing view unavailable.'); return; }
     vis.playback.stop();
     preprocess.run(id, {
       onInfo: (m) => vis._status(m),
