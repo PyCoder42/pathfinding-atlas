@@ -2,7 +2,7 @@
 // Validates every algorithm vs Dijkstra across all scenarios and several seeds,
 // writing a machine-readable summary to the path given as argv[2].
 import { writeFileSync } from 'fs';
-import { byId, ALGORITHMS } from '../js/algorithms/index.js';
+import { byId, ALGORITHMS, safeFor } from '../js/algorithms/index.js';
 import { makeQuery, drain } from '../js/core/runner.js';
 import { generateMap } from '../js/generators/map.js';
 import { generateGrid } from '../js/generators/grid.js';
@@ -33,6 +33,8 @@ function testGraph(label, g, count) {
     const opt = drain(makeQuery(byId.dijkstra, g, s, go, {})).cost;
     for (const id of ALL) {
       const algo = byId[id];
+      if (!safeFor(id, g).ok) continue;        // skip algos not applicable to this graph
+      if (algo.anyAngle) continue;             // any-angle (Theta*) has its own validator
       let res;
       try { res = drain(makeQuery(algo, g, s, go, {})); }
       catch (e) { report.totalChecks++; report.totalFails++; if (report.sampleFailures.length < 30) report.sampleFailures.push(`${label}/${id} ${s}->${go} threw: ${e.message}`); continue; }

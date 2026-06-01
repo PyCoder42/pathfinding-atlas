@@ -20,6 +20,9 @@ import { bellmanFord } from './bellman-ford.js';
 import { alt, preprocessALT } from './alt.js';
 import { contractionHierarchies, preprocessCH } from './contraction-hierarchies.js';
 import { customizableCH, preprocessCCH } from './customizable-ch.js';
+import { jps } from './jps.js';
+import { thetaStar } from './theta-star.js';
+import { dstarLite } from './dstar-lite.js';
 
 export const CATEGORIES = {
   classic: { label: 'Classic', order: 0 },
@@ -27,6 +30,7 @@ export const CATEGORIES = {
   bidirectional: { label: 'Bidirectional', order: 2 },
   speedup: { label: 'Goal-directed speedup', order: 3 },
   hierarchical: { label: 'Hierarchical (preprocessed)', order: 4 },
+  specialized: { label: 'Specialized', order: 5 },
 };
 
 export const ALGORITHMS = [
@@ -156,10 +160,85 @@ export const ALGORITHMS = [
     supportsNegative: false,
     blurb: 'CH split into metric-independent + fast metric customization.',
   },
+  {
+    id: 'jps',
+    name: 'Jump Point Search',
+    short: 'JPS',
+    color: '#21c0a8',
+    category: 'specialized',
+    run: jps,
+    optimal: true,
+    needsHeuristic: true,
+    supportsNegative: false,
+    needsGrid: true,
+    needsDiagonal: true, // classic JPS requires 8-connectivity
+    uniformOnly: true,   // only valid on uniform-cost grids
+    blurb: 'A* that "jumps" over symmetric grid paths. Same path, far fewer expansions.',
+  },
+  {
+    id: 'theta-star',
+    name: 'Theta* (any-angle)',
+    short: 'Theta*',
+    color: '#ff8c42',
+    category: 'specialized',
+    run: thetaStar,
+    optimal: false,    // optimal for ANY-ANGLE paths, not grid-constrained ones
+    anyAngle: true,
+    needsHeuristic: true,
+    supportsNegative: false,
+    needsGrid: true,
+    blurb: 'Any-angle paths via line-of-sight shortcuts — shorter than grid A*.',
+  },
+  {
+    id: 'dstar-lite',
+    name: 'D* Lite',
+    short: 'D* Lite',
+    color: '#b07cff',
+    category: 'specialized',
+    run: dstarLite,
+    optimal: true,
+    needsHeuristic: false,
+    supportsNegative: false,
+    blurb: 'Incremental replanning from the goal — what robots use when the map changes.',
+  },
 ];
 
 export const byId = Object.fromEntries(ALGORITHMS.map((a) => [a.id, a]));
 
 export function algoColor(id) {
   return byId[id] ? byId[id].color : '#888';
+}
+
+// ── Applicability guards ────────────────────────────────────────────────────
+// Some algorithms only make sense on certain graphs (size limits, grid-only,
+// non-negative weights). One source of truth, used by the UI and the tests.
+const SIZE_GUARDS = {
+  'bellman-ford': { maxNodes: 8000, reason: 'O(V·E) — too slow above ~8k nodes' },
+  alt: { maxNodes: 50000, reason: 'precomputes a Dijkstra per landmark' },
+  'contraction-hierarchies': { maxNodes: 14000, reason: 'JS preprocessing gets slow above ~14k nodes' },
+  'customizable-ch': { maxNodes: 12000, reason: 'JS preprocessing gets slow above ~12k nodes' },
+};
+const NEEDS_NONNEGATIVE = new Set([
+  'dijkstra', 'astar', 'greedy', 'bidirectional-dijkstra', 'bidirectional-astar',
+  'alt', 'contraction-hierarchies', 'customizable-ch', 'jps', 'theta-star', 'dstar-lite',
+]);
+
+export function safeFor(algoId, graph) {
+  const algo = byId[algoId];
+  if (!algo || !graph) return { ok: false, reason: 'unknown' };
+  if (graph.hasNegative && NEEDS_NONNEGATIVE.has(algoId)) {
+    return { ok: false, reason: 'assumes non-negative weights — use Bellman–Ford' };
+  }
+  if (algo.needsGrid && !graph.grid) {
+    return { ok: false, reason: 'grid scenarios only' };
+  }
+  if (algo.needsDiagonal && !(graph.grid && graph.grid.diagonal)) {
+    return { ok: false, reason: 'needs an 8-direction grid' };
+  }
+  if (algo.uniformOnly && graph.uniform === false) {
+    return { ok: false, reason: 'uniform-cost grids only (turn off terrain weights)' };
+  }
+  const g = SIZE_GUARDS[algoId];
+  if (g && graph.n > g.maxNodes) return { ok: false, reason: g.reason };
+  return { ok: true };
 }

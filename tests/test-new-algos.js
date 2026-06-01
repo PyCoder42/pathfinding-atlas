@@ -81,9 +81,10 @@ for (const seed of [1, 2, 3]) {
   testDstar('grid8w', generateGrid(26, 20, { seed, weighted: true, diagonal: true, wallDensity: 0.1 }).graph, 10);
   testDstar('maze', generateMaze(23, 15, { seed, braid: 0.1 }).graph, 10);
   testDstar('random', generateRandomGraph(500, { seed }).graph, 10);
-  testJps('grid4u', generateGrid(30, 24, { seed, weighted: false, diagonal: false, wallDensity: 0.12 }).graph, 14);
-  testJps('grid8u', generateGrid(30, 24, { seed, weighted: false, diagonal: true, wallDensity: 0.12 }).graph, 14);
-  testJps('grid4open', generateGrid(28, 20, { seed, weighted: false, diagonal: false }).graph, 8);
+  // JPS is only valid (and only enabled) on 8-connected uniform grids.
+  testJps('grid8u', generateGrid(30, 24, { seed, weighted: false, diagonal: true, wallDensity: 0.12 }).graph, 16);
+  testJps('grid8u2', generateGrid(30, 24, { seed, weighted: false, diagonal: true, wallDensity: 0.2 }).graph, 12);
+  testJps('grid8open', generateGrid(28, 20, { seed, weighted: false, diagonal: true }).graph, 8);
   testTheta('grid4u', generateGrid(30, 24, { seed, weighted: false, diagonal: false, wallDensity: 0.1 }).graph, 12);
   testTheta('grid8u', generateGrid(30, 24, { seed, weighted: false, diagonal: true, wallDensity: 0.1 }).graph, 12);
 }

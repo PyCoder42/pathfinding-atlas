@@ -5,38 +5,20 @@
 // animated/raced visualization, benchmarking, metrics, and the explanation
 // panel — lives here so features land in both sections at once.
 
-import { ALGORITHMS, CATEGORIES, byId } from '../algorithms/index.js';
+import { ALGORITHMS, CATEGORIES, byId, safeFor } from '../algorithms/index.js';
 import { Renderer } from './renderer.js';
 import { Playback } from './playback.js';
 import { makeQuery, benchmark, getAux, drain } from '../core/runner.js';
 import { el, clear } from './dom.js';
 import { fmtInt, fmtCost, fmtTime, downloadJSON, clamp } from '../core/utils.js';
-import { EXPLANATIONS } from '../content/explanations.js';
+import { EXPLANATIONS as EXPL_BASE } from '../content/explanations.js';
+import { EXPLANATIONS_EXTRA } from '../content/explanations-extra.js';
+const EXPLANATIONS = { ...EXPL_BASE, ...EXPLANATIONS_EXTRA };
 
 const BWD_CONTRAST = '#ff7ad9'; // backward-direction color in single bidi view
 
-// Soft guards: some algorithms are impractical on very large graphs.
-const GUARDS = {
-  'bellman-ford': { maxNodes: 8000, reason: 'O(V·E) — too slow above ~8k nodes' },
-  alt: { maxNodes: 50000, reason: 'precomputes a Dijkstra per landmark' },
-  'contraction-hierarchies': { maxNodes: 14000, reason: 'JS preprocessing gets slow above ~14k nodes' },
-  'customizable-ch': { maxNodes: 12000, reason: 'JS preprocessing gets slow above ~12k nodes' },
-};
-
-// Algorithms that REQUIRE non-negative edge weights to be correct.
-const NEEDS_NONNEGATIVE = new Set([
-  'dijkstra', 'astar', 'greedy', 'bidirectional-dijkstra',
-  'bidirectional-astar', 'alt', 'contraction-hierarchies', 'customizable-ch',
-]);
-
-function safeFor(algoId, graph) {
-  if (graph.hasNegative && NEEDS_NONNEGATIVE.has(algoId)) {
-    return { ok: false, reason: 'assumes non-negative weights — use Bellman–Ford' };
-  }
-  const g = GUARDS[algoId];
-  if (g && graph.n > g.maxNodes) return { ok: false, reason: g.reason };
-  return { ok: true };
-}
+// Applicability guards live in the algorithm registry (index.js) so the UI and
+// the test harness agree. `safeFor(algoId, graph)` -> { ok, reason }.
 
 export class Visualizer {
   constructor(root, config = {}) {
