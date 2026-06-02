@@ -310,3 +310,39 @@ export function safeFor(algoId, graph) {
   if (g && graph.n > g.maxNodes) return { ok: false, reason: g.reason };
   return { ok: true };
 }
+
+// True when every edge costs the same, so "fewest edges" == "lowest cost" and
+// the unweighted searches (BFS / Bi-BFS) are actually optimal. Note an
+// 8-connected grid is NOT uniform even with terrain off: diagonal moves cost √2,
+// so BFS (which counts hops) can return a longer path than Dijkstra.
+export function graphIsUniform(graph) {
+  if (!graph) return false;
+  if (graph.kind === 'maze') return true;            // 4-connected, unit steps
+  if (graph.grid) return graph.uniform === true && !graph.grid.diagonal;
+  if (graph.equalWeights === true) return true;
+  return false;
+}
+
+// Does `algoId` return the optimal (minimum-cost) path on THIS graph?
+//   status: 'optimal' | 'suboptimal' | 'anyAngle' | 'na'
+//   note:   one short, human sentence for the UI and the sandbox.
+// Single source of truth shared by the algorithm panel grouping, the sandbox
+// optimality note, and the tests — so they can never disagree.
+export function optimalityFor(algoId, graph) {
+  const algo = byId[algoId];
+  if (!algo) return { status: 'na', note: 'unknown algorithm' };
+  const safe = safeFor(algoId, graph);
+  if (!safe.ok) return { status: 'na', note: safe.reason };
+  if (algo.anyAngle) {
+    return { status: 'anyAngle', note: 'any-angle: finds a shorter path than the grid-optimal one' };
+  }
+  if (algo.id === 'dfs') return { status: 'suboptimal', note: 'finds *a* path, not the shortest' };
+  if (algo.id === 'greedy') return { status: 'suboptimal', note: 'follows the heuristic greedily — usually not the shortest' };
+  if (algo.id === 'bfs' || algo.id === 'bidirectional-bfs') {
+    return graphIsUniform(graph)
+      ? { status: 'optimal', note: 'fewest hops = shortest when every edge costs the same' }
+      : { status: 'suboptimal', note: 'minimizes the number of hops, not weighted cost — not optimal here' };
+  }
+  if (algo.optimal) return { status: 'optimal', note: 'returns the provably shortest path' };
+  return { status: 'suboptimal', note: 'not guaranteed to be the shortest path' };
+}

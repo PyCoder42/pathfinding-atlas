@@ -13,20 +13,60 @@ import { readStateFromURL } from '../ui/share.js';
 const root = document.querySelector('#app');
 const vis = new Visualizer(root, {
   section: 'graph',
-  defaultSelected: ['dijkstra', 'astar', 'greedy', 'bidirectional-dijkstra'],
-  defaultFocus: 'astar',
+  defaultSelected: ['bfs', 'dfs', 'bidirectional-bfs'],
+  defaultFocus: 'bfs',
 });
 
+// The Graphs page is split into two domains (tabs). Each curates the scenarios
+// where it makes sense and the algorithms you'd actually reach for there.
+//   Unweighted → minimise the number of steps (BFS / DFS / Bi-BFS)
+//   Weighted   → minimise total cost (Dijkstra → A* → CH → CCH, Bellman–Ford)
+const DOMAINS = {
+  unweighted: {
+    label: 'Unweighted',
+    sub: 'fewest steps',
+    types: [
+      { value: 'maze', label: 'Maze' },
+      { value: 'grid', label: 'Uniform grid' },
+    ],
+    defaults: { type: 'maze', weighted: false, selected: ['bfs', 'dfs', 'bidirectional-bfs'], focus: 'bfs' },
+  },
+  weighted: {
+    label: 'Weighted',
+    sub: 'lowest cost',
+    types: [
+      { value: 'grid', label: 'Weighted terrain grid' },
+      { value: 'random', label: 'Large geometric graph' },
+      { value: 'negative', label: 'Negative weights (Bellman–Ford)' },
+    ],
+    defaults: { type: 'grid', weighted: true, selected: ['dijkstra', 'astar', 'bidirectional-dijkstra', 'contraction-hierarchies'], focus: 'astar' },
+  },
+};
+
 const state = {
+  domain: 'unweighted',
   type: 'maze',
   size: 46,
   seed: 1,
   mazeAlgo: 'backtracker',
   braid: 0.08,
   diagonal: false,
-  weighted: true,
+  weighted: false,
   wallDensity: 0,
 };
+
+function setDomain(d) {
+  if (!DOMAINS[d]) return;
+  state.domain = d;
+  const def = DOMAINS[d].defaults;
+  state.type = def.type;
+  state.weighted = def.weighted;
+  vis.selected = new Set(def.selected);
+  vis.focus = def.focus;
+  buildControls();
+  vis._syncAlgoChecks();
+  generate();
+}
 
 function sizeFor(type, t01) {
   if (type === 'random') {
@@ -52,13 +92,23 @@ function buildControls() {
   const p = clear(vis.scenarioPanel);
   p.append(el('h2', { class: 'panel-title' }, 'Graph'));
 
-  // type
-  const typeSel = el('select', { class: 'select' }, [
-    el('option', { value: 'maze' }, 'Maze'),
-    el('option', { value: 'grid' }, 'Weighted terrain grid'),
-    el('option', { value: 'random' }, 'Large geometric graph'),
-    el('option', { value: 'negative' }, 'Negative weights (Bellman–Ford)'),
-  ]);
+  // Domain tabs: Unweighted (fewest steps) vs Weighted (lowest cost).
+  const tabs = el('div', { class: 'seg domain-tabs' });
+  for (const [key, d] of Object.entries(DOMAINS)) {
+    tabs.append(el('button', {
+      class: 'seg-btn' + (state.domain === key ? ' active' : ''),
+      title: d.sub,
+      onclick: () => { if (state.domain !== key) setDomain(key); },
+    }, [d.label, el('span', { class: 'seg-sub' }, d.sub)]));
+  }
+  p.append(tabs);
+  p.append(el('div', { class: 'hint domain-blurb' }, state.domain === 'unweighted'
+    ? 'Minimise the number of steps — BFS, DFS and Bidirectional BFS, the first search algorithms you learn. Every edge costs the same here.'
+    : 'Minimise total cost (distance / time) — Dijkstra and everything built on it, up to the hierarchies real routers use.'));
+
+  // Scenario type (the options depend on the domain).
+  const typeSel = el('select', { class: 'select' },
+    DOMAINS[state.domain].types.map((t) => el('option', { value: t.value }, t.label)));
   typeSel.value = state.type;
   typeSel.addEventListener('change', () => {
     state.type = typeSel.value;
@@ -108,16 +158,20 @@ function buildControls() {
       braid.addEventListener('change', () => { state.braid = +braid.value / 100; generate(); });
       sub.append(el('div', { class: 'field' }, [el('label', {}, 'Braiding'), braid, braidVal]));
     } else if (state.type === 'grid') {
-      const wt = el('input', { type: 'checkbox' });
-      wt.checked = state.weighted;
-      wt.addEventListener('change', () => { state.weighted = wt.checked; generate(); });
+      const toggles = [];
+      if (state.domain === 'weighted') {
+        const wt = el('input', { type: 'checkbox' });
+        wt.checked = state.weighted;
+        wt.addEventListener('change', () => { state.weighted = wt.checked; generate(); });
+        toggles.push(el('label', { class: 'toggle' }, [wt, 'Weighted terrain']));
+      } else {
+        state.weighted = false; // uniform grid in the unweighted domain
+      }
       const dg = el('input', { type: 'checkbox' });
       dg.checked = state.diagonal;
       dg.addEventListener('change', () => { state.diagonal = dg.checked; generate(); });
-      sub.append(el('div', { class: 'toggles' }, [
-        el('label', { class: 'toggle' }, [wt, 'Weighted terrain']),
-        el('label', { class: 'toggle' }, [dg, '8-direction']),
-      ]));
+      toggles.push(el('label', { class: 'toggle' }, [dg, '8-direction (enables JPS)']));
+      sub.append(el('div', { class: 'toggles' }, toggles));
       const wall = el('input', { type: 'range', min: '0', max: '35', value: String(state.wallDensity * 100) });
       const wallVal = el('span', { class: 'field-val' }, `${Math.round(state.wallDensity * 100)}% walls`);
       wall.addEventListener('input', () => { wallVal.textContent = `${wall.value}% walls`; });

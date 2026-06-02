@@ -5,7 +5,7 @@
 // animated/raced visualization, benchmarking, metrics, and the explanation
 // panel — lives here so features land in both sections at once.
 
-import { ALGORITHMS, CATEGORIES, byId, safeFor } from '../algorithms/index.js';
+import { ALGORITHMS, byId, safeFor, optimalityFor } from '../algorithms/index.js';
 import { Renderer } from './renderer.js';
 import { Playback } from './playback.js';
 import { makeQuery, benchmark, getAux, drain } from '../core/runner.js';
@@ -78,10 +78,9 @@ export class Visualizer {
     const presets = el('div', { class: 'presets' });
     const PRESETS = {
       Recommended: ['dijkstra', 'astar', 'bidirectional-dijkstra', 'contraction-hierarchies'],
-      Classic: ['bfs', 'dijkstra', 'bellman-ford'],
+      Unweighted: ['bfs', 'dfs', 'bidirectional-bfs'],
       Heuristic: ['greedy', 'astar', 'alt'],
-      Bidirectional: ['bidirectional-dijkstra', 'bidirectional-astar'],
-      Hierarchical: ['contraction-hierarchies', 'customizable-ch'],
+      'Google Maps': ['contraction-hierarchies', 'customizable-ch'],
       All: ALGORITHMS.map((a) => a.id),
       None: [],
     };
@@ -101,42 +100,64 @@ export class Visualizer {
     }
     p.append(presets);
 
-    const groups = {};
-    for (const a of ALGORITHMS) (groups[a.category] ||= []).push(a);
-    const catOrder = Object.entries(CATEGORIES).sort((a, b) => a[1].order - b[1].order);
-
     this._checks = {};
-    for (const [cat, meta] of catOrder) {
-      const list = groups[cat] || [];
-      if (!list.length) continue;
-      p.append(el('div', { class: 'algo-cat' }, meta.label));
-      for (const a of list) {
-        const cb = el('input', { type: 'checkbox' });
-        cb.checked = this.selected.has(a.id);
-        cb.addEventListener('change', () => {
-          if (cb.checked) this.selected.add(a.id);
-          else this.selected.delete(a.id);
-          if (cb.checked) this.focus = a.id;
-          this._buildMetrics();
-          this._renderExplain();
-        });
-        this._checks[a.id] = cb;
-        const row = el('label', { class: 'algo-row', title: a.blurb }, [
-          cb,
-          el('span', { class: 'swatch', style: { background: a.color } }),
-          el('span', {
-            class: 'algo-name',
-            onclick: (e) => {
-              e.preventDefault();
-              this.focus = a.id;
-              this._renderExplain();
-            },
-          }, a.short),
-          a.preprocess ? el('span', { class: 'tag tag-pre' }, 'pre') : null,
-          a.optimal ? null : el('span', { class: 'tag tag-warn' }, '≉'),
-        ]);
-        p.append(row);
-      }
+    const graph = this.graph;
+
+    const mkRow = (a, opt) => {
+      const na = opt && opt.status === 'na';
+      const cb = el('input', { type: 'checkbox' });
+      cb.checked = this.selected.has(a.id) && !na;
+      if (na) { cb.disabled = true; this.selected.delete(a.id); }
+      cb.addEventListener('change', () => {
+        if (cb.checked) this.selected.add(a.id);
+        else this.selected.delete(a.id);
+        if (cb.checked) this.focus = a.id;
+        this._buildMetrics();
+        this._renderExplain();
+      });
+      this._checks[a.id] = cb;
+      const badges = [];
+      if (a.production) badges.push(el('span', { class: 'badge badge-maps', title: 'Used by production routers like Google Maps' }, 'Maps'));
+      if (a.preprocess) badges.push(el('span', { class: 'tag tag-pre', title: 'Preprocesses the graph before queries' }, 'pre'));
+      return el('label', { class: 'algo-row' + (na ? ' is-na' : ''), title: `${a.purpose}${opt ? ' — ' + opt.note : ''}` }, [
+        cb,
+        el('span', { class: 'swatch', style: { background: a.color } }),
+        el('span', {
+          class: 'algo-name',
+          onclick: (e) => { e.preventDefault(); this.focus = a.id; this._renderExplain(); },
+        }, a.short),
+        ...badges,
+      ]);
+    };
+
+    // Before any scenario is loaded there's no graph to judge against — show a
+    // simple flat list; the optimality grouping appears once a graph exists.
+    if (!graph) {
+      for (const a of ALGORITHMS) p.append(mkRow(a, null));
+      return;
+    }
+
+    // Group by whether each algorithm returns the shortest path ON THIS graph.
+    const buckets = { optimal: [], sub: [], na: [] };
+    for (const a of ALGORITHMS) {
+      const opt = optimalityFor(a.id, graph);
+      (opt.status === 'na' ? buckets.na : opt.status === 'optimal' ? buckets.optimal : buckets.sub).push([a, opt]);
+    }
+
+    p.append(el('div', { class: 'algo-group-title' }, 'Recommended — returns the shortest path'));
+    for (const [a, opt] of buckets.optimal) p.append(mkRow(a, opt));
+
+    if (buckets.sub.length) {
+      const det = el('details', { class: 'algo-collapsible' });
+      det.append(el('summary', {}, `Won't return the shortest path here (${buckets.sub.length})`));
+      for (const [a, opt] of buckets.sub) det.append(mkRow(a, opt));
+      p.append(det);
+    }
+    if (buckets.na.length) {
+      const det = el('details', { class: 'algo-collapsible muted' });
+      det.append(el('summary', {}, `Not available on this graph (${buckets.na.length})`));
+      for (const [a, opt] of buckets.na) det.append(mkRow(a, opt));
+      p.append(det);
     }
   }
 
@@ -391,8 +412,10 @@ export class Visualizer {
     this.pois = pois;
     this.scenarioLabel = label;
     this._buildLegend();
+    this._buildAlgoPanel(); // regroup recommended / not-shortest / unavailable for this graph
     await this._mountRenderers([...this.selected].length ? [...this.selected] : ['dijkstra']);
     this._buildMetrics();
+    this._renderExplain();
     this._status(label || 'Scenario loaded. Press Play.');
     if (this.onScenarioChange) this.onScenarioChange();
   }
@@ -743,11 +766,23 @@ export class Visualizer {
       el('div', { class: 'explain-head' }, [
         el('span', { class: 'swatch big', style: { background: a.color } }),
         el('div', {}, [
-          el('h2', { class: 'panel-title' }, a.name),
+          el('h2', { class: 'panel-title' }, [a.name, a.production ? el('span', { class: 'badge badge-maps', title: 'Used by production routers like Google Maps' }, 'Maps') : null]),
           el('div', { class: 'tagline' }, ex ? ex.tagline : a.blurb),
         ]),
       ])
     );
+
+    // What is this algorithm FOR, and does it return the shortest path on the
+    // graph currently loaded? (The "note in the sandbox".)
+    p.append(el('div', { class: 'purpose-line' }, a.purpose));
+    if (this.graph) {
+      const opt = optimalityFor(this.focus, this.graph);
+      const label = opt.status === 'optimal' ? '✓ Optimal on this graph'
+        : opt.status === 'anyAngle' ? '∡ Any-angle — shorter than the grid path'
+        : opt.status === 'na' ? '— Not available on this graph'
+        : '≉ Not the shortest on this graph';
+      p.append(el('div', { class: 'opt-note opt-' + opt.status }, [el('b', {}, label), el('span', {}, opt.note)]));
+    }
 
     if (!ex) {
       p.append(el('p', { class: 'muted' }, a.blurb));

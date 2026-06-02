@@ -176,6 +176,9 @@ h1, h2, h3, h4 { margin: 0 0 0.4em; line-height: 1.2; }
 .seg { display: flex; background: #141d30; border: 1px solid var(--line); border-radius: 9px; padding: 3px; margin-bottom: 12px; }
 .seg-btn { flex: 1; background: transparent; border: 0; color: var(--muted); padding: 8px; border-radius: 7px; font-weight: 700; font-size: 13px; cursor: pointer; font-family: inherit; }
 .seg-btn.active { background: #28406e; color: #fff; }
+.domain-tabs .seg-btn { display: flex; flex-direction: column; gap: 1px; line-height: 1.15; }
+.seg-sub { font-size: 10px; font-weight: 500; opacity: 0.7; text-transform: none; letter-spacing: 0; }
+.domain-blurb { margin-top: -4px; margin-bottom: 12px; }
 
 .transport { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
 .transport .primary { grid-column: 1 / -1; }
@@ -214,6 +217,32 @@ input[type="checkbox"] { accent-color: var(--accent-2); width: 15px; height: 15p
 .tag { font-size: 9px; padding: 1px 5px; border-radius: 5px; font-weight: 700; text-transform: uppercase; }
 .tag-pre { background: #3a2c10; color: var(--accent); }
 .tag-warn { background: #3a1520; color: var(--bad); }
+
+/* Algorithm grouping by optimality-on-this-graph */
+.algo-group-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--good); margin: 12px 0 4px; font-weight: 700; }
+.algo-collapsible { margin-top: 8px; border-top: 1px solid var(--line-soft); padding-top: 4px; }
+.algo-collapsible > summary { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted-2); cursor: pointer; padding: 4px 2px; list-style: revert; user-select: none; }
+.algo-collapsible > summary:hover { color: var(--text); }
+.algo-collapsible.muted > summary { color: var(--muted-2); opacity: 0.8; }
+.algo-row.is-na { opacity: 0.5; cursor: not-allowed; }
+.algo-row.is-na .algo-name { cursor: not-allowed; text-decoration: line-through; }
+
+/* "Used by Google Maps" + optimality badges/notes */
+.badge { font-size: 9px; padding: 1px 6px; border-radius: 5px; font-weight: 700; letter-spacing: 0.3px; }
+.badge-maps { background: linear-gradient(90deg, #4285F4, #34A853); color: #fff; }
+.panel-title .badge-maps { vertical-align: middle; margin-left: 8px; }
+.purpose-line { font-size: 12.5px; color: var(--muted); margin: 8px 0 6px; line-height: 1.5; }
+.opt-note { display: flex; flex-direction: column; gap: 1px; font-size: 12px; border-radius: 8px; padding: 7px 10px; margin-bottom: 10px; border: 1px solid var(--line-soft); }
+.opt-note b { font-size: 12px; }
+.opt-note span { color: var(--muted); }
+.opt-note.opt-optimal { background: #0f2417; border-color: #1c5436; }
+.opt-note.opt-optimal b { color: var(--good); }
+.opt-note.opt-suboptimal { background: #2a1622; border-color: #5a2740; }
+.opt-note.opt-suboptimal b { color: var(--bad); }
+.opt-note.opt-anyAngle { background: #2a2210; border-color: #5a4a1c; }
+.opt-note.opt-anyAngle b { color: var(--accent); }
+.opt-note.opt-na { background: #1a1f2c; }
+.opt-note.opt-na b { color: var(--muted-2); }
 
 /* ── Metrics table ───────────────────────────────────────────────────────── */
 .metrics { width: 100%; border-collapse: collapse; font-size: 12px; }
