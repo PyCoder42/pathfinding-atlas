@@ -34,6 +34,7 @@ Object.defineProperty(window, 'devicePixelRatio', { value: 1, configurable: true
 global.devicePixelRatio = 1;
 
 const { Visualizer } = await import('../js/ui/visualizer.js');
+const { ALGORITHMS } = await import('../js/algorithms/index.js');
 const { generateMap } = await import('../js/generators/map.js');
 const { generateMaze } = await import('../js/generators/maze.js');
 
@@ -44,7 +45,7 @@ const check = (name, cond) => results.push({ name, ok: !!cond });
 const root = window.document.getElementById('app');
 const vis = new Visualizer(root, { section: 'map', defaultSelected: ['dijkstra', 'astar', 'bidirectional-astar', 'contraction-hierarchies'], defaultFocus: 'astar' });
 
-check('algorithm panel built (13 algos)', root.querySelectorAll('.algo-row').length === 13);
+check(`algorithm panel built (${ALGORITHMS.length} algos)`, root.querySelectorAll('.algo-row').length === ALGORITHMS.length);
 check('run panel built', root.querySelector('.transport') != null);
 check('explanation rendered', /A\*|Search/.test(root.querySelector('#panel-explain').textContent || ''));
 

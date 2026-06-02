@@ -283,8 +283,11 @@ export function algoColor(id) {
 const SIZE_GUARDS = {
   'bellman-ford': { maxNodes: 8000, reason: 'O(V·E) — too slow above ~8k nodes' },
   alt: { maxNodes: 50000, reason: 'precomputes a Dijkstra per landmark' },
-  'contraction-hierarchies': { maxNodes: 14000, reason: 'JS preprocessing gets slow above ~14k nodes' },
-  'customizable-ch': { maxNodes: 12000, reason: 'JS preprocessing gets slow above ~12k nodes' },
+  // Road networks are sparse and contract fast (≈0.8s for Cambridge's 15.7k
+  // nodes), so all three OSM cities can demo CH/CCH. Dense synthetic meshes near
+  // this ceiling preprocess in a few seconds (shown via the "Preprocessing…" status).
+  'contraction-hierarchies': { maxNodes: 16000, reason: 'JS preprocessing gets slow above ~16k nodes' },
+  'customizable-ch': { maxNodes: 16000, reason: 'JS preprocessing gets slow above ~16k nodes' },
 };
 const NEEDS_NONNEGATIVE = new Set([
   'dijkstra', 'astar', 'greedy', 'bidirectional-dijkstra', 'bidirectional-astar',
