@@ -4,6 +4,8 @@
 // fastest route — exactly like a real router.
 
 import { Visualizer } from '../ui/visualizer.js';
+import { Renderer } from '../ui/renderer.js';
+import { LeafletRenderer } from '../ui/leaflet-renderer.js';
 import { loadOSM } from '../generators/osm-map.js';
 import { generateMap } from '../generators/map.js';
 import { clearAux } from '../core/runner.js';
@@ -14,8 +16,16 @@ import { readStateFromURL } from '../ui/share.js';
 const root = document.querySelector('#app');
 const vis = new Visualizer(root, {
   section: 'map',
-  defaultSelected: ['dijkstra', 'astar', 'bidirectional-dijkstra', 'contraction-hierarchies'],
+  defaultSelected: ['astar'],
   defaultFocus: 'astar',
+  // Single full view → animate the search over a real OSM tile map (Leaflet);
+  // multi-view (racing) and any environment without Leaflet/geo fall back to the
+  // self-contained canvas renderer so the map always works.
+  makeRenderer: (canvas, { single }) => {
+    const g = vis.graph;
+    if (single && window.L && g && g.geo) return new LeafletRenderer(canvas, { geo: g.geo });
+    return new Renderer(canvas, {});
+  },
 });
 
 const PLACES = [

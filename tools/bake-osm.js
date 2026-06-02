@@ -11,8 +11,11 @@ const CLASS = {
   secondary: ['arterial', 55], tertiary: ['arterial', 45],
   secondary_link: ['arterial', 40], tertiary_link: ['arterial', 35],
   residential: ['local', 30], unclassified: ['local', 40], living_street: ['local', 12],
-  service: ['local', 18],
+  service: ['local', 18], road: ['local', 30],
 };
+// Only keep roads you can actually drive on — exclude footway/steps/path/
+// pedestrian/cycleway so the network is a real driving graph (like a router).
+const DRIVABLE = new Set(Object.keys(CLASS));
 const defaultFor = (hw) => CLASS[hw] || ['local', 30];
 
 function parseSpeed(tag, fallback) {
@@ -39,7 +42,7 @@ const coord = new Map(); // osm node id -> {lat,lon}
 const ways = [];
 for (const el of raw) {
   if (el.type === 'node') coord.set(el.id, { lat: el.lat, lon: el.lon });
-  else if (el.type === 'way' && el.tags && el.tags.highway) ways.push(el);
+  else if (el.type === 'way' && el.tags && DRIVABLE.has(el.tags.highway)) ways.push(el);
 }
 
 // Build directed edges between consecutive way nodes; collect used node ids.
@@ -143,6 +146,10 @@ const out = {
   n: X.length,
   maxSpeed,
   x: X, y: Y,
+  // Linear projection used above (km ↔ lat/lng), so the Leaflet basemap can
+  // place every node geographically:  lon = lon0 + x/kmPerLon,
+  // lat = lat0 - y/kmPerLat. Exact inverse of the bake projection.
+  geo: { lat0: +lat0.toFixed(7), lon0: +lon0.toFixed(7), kmPerLat, kmPerLon: +kmPerLon.toFixed(6) },
   names: pois.map((p) => [p.id, p.name]),
   edges: E,
   start, goal,

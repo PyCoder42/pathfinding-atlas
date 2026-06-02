@@ -18,6 +18,9 @@ export function buildOSMGraph(data) {
   g.speedLimit = (data.maxSpeed || 100) / 60; // heuristic = straight-km / maxSpeed (minutes)
   g.equalWeights = false;
   g.osm = true;
+  // Linear projection params so a Leaflet basemap can place nodes geographically:
+  //   lon = lon0 + x/kmPerLon ,  lat = lat0 - y/kmPerLat   (exact inverse of bake).
+  if (data.geo) g.geo = data.geo;
 
   const names = new Map((data.names || []).map(([id, name]) => [id, name]));
   for (let i = 0; i < data.n; i++) {

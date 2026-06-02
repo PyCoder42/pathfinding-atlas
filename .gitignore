@@ -10,3 +10,6 @@ package-lock.json
 # Logs / scratch
 *.log
 /tmp/
+
+# Raw Overpass dumps (regenerable via tools/refetch-osm.sh; only baked data/ is committed)
+tools/osm-raw/

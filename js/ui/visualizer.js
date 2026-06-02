@@ -49,6 +49,11 @@ export class Visualizer {
     this.playback.onAllDone = () => this._onAllDone();
     this.options = { heatmap: false, showFrontier: true, showEdges: true, showLabels: true };
 
+    // Factory for the per-view renderer. A section can supply its own (the map
+    // section returns a LeafletRenderer for the single full view so the search
+    // animates over real OSM tiles); the default is the self-contained canvas.
+    this.makeRenderer = config.makeRenderer || ((canvas) => new Renderer(canvas, {}));
+
     this.onEndpointsChanged = null; // section hook
     this.onScenarioChange = null; // fired after setScenario (tools rebind here)
 
@@ -254,6 +259,7 @@ export class Visualizer {
 
   _zoom(factor) {
     for (const r of this.renderers) {
+      if (r.zoomBy) { r.zoomBy(factor); continue; } // Leaflet-backed map view
       const cx = r._cssW / 2;
       const cy = r._cssH / 2;
       const [wx, wy] = r.screenToWorld(cx, cy);
@@ -276,6 +282,20 @@ export class Visualizer {
   // Build canvases + renderers for `algoIds`. Returns a promise resolved once
   // they are laid out and bound to the graph.
   _mountRenderers(algoIds) {
+    // Reuse the existing renderers when the same algorithm set is already
+    // mounted on the same graph — avoids rebuilding canvases (and tearing down /
+    // recreating the Leaflet map, which would reload tiles and lose the view)
+    // every time Play is pressed.
+    const sameSet =
+      this._mountedGraph === this.graph &&
+      this.renderers.length === algoIds.length &&
+      this._mountedIds && this._mountedIds.length === algoIds.length &&
+      this._mountedIds.every((id, i) => id === algoIds[i]);
+    if (sameSet) return Promise.resolve();
+
+    // Tear down old renderers (Leaflet maps + their window listeners) first.
+    this.renderers.forEach((r) => { if (r.destroy) r.destroy(); });
+
     const area = clear(this.canvasArea);
     const single = algoIds.length <= 1;
     area.classList.toggle('single', single);
@@ -306,13 +326,15 @@ export class Visualizer {
         ]);
       }
       area.append(panel);
-      const r = new Renderer(canvas, {});
+      const r = this.makeRenderer(canvas, { single, id });
       r.setOptions(this.options);
       r.setColors(this._colorsFor(algo, single));
       r._algoId = id;
       this.renderers.push(r);
       panels.push({ r, single });
     }
+    this._mountedIds = [...algoIds];
+    this._mountedGraph = this.graph;
 
     return new Promise((resolve) => {
       requestAnimationFrame(() => {
