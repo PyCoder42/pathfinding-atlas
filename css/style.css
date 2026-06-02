@@ -72,7 +72,12 @@ h1, h2, h3, h4 { margin: 0 0 0.4em; line-height: 1.2; }
 .topbar nav a:hover { color: var(--text); background: #ffffff10; text-decoration: none; }
 .topbar nav a.active { color: var(--text); background: #ffffff14; }
 .topbar .spacer { flex: 1; }
-.topbar .ghost { color: var(--muted-2); font-size: 13px; }
+.topbar .brand { color: var(--text); }
+.topbar .brand:hover { text-decoration: none; color: var(--text); }
+.topbar .brand .logo { transition: box-shadow 0.18s ease, transform 0.18s ease; }
+.topbar .brand:hover .logo { box-shadow: 0 0 0 3px rgba(79, 134, 247, 0.28); transform: rotate(-6deg); }
+.topbar-cta { color: var(--text); font-weight: 700; font-size: 13px; padding: 7px 14px; border: 1px solid var(--line); border-radius: 999px; background: #ffffff0a; transition: 0.15s; }
+.topbar-cta:hover { text-decoration: none; border-color: var(--accent-2); background: #ffffff14; }
 
 /* ── App layout ──────────────────────────────────────────────────────────── */
 .layout {
@@ -282,8 +287,9 @@ input[type="checkbox"] { accent-color: var(--accent-2); width: 15px; height: 15p
 /* ============================================================================
    Landing page
    ========================================================================== */
-.hero { max-width: 1100px; margin: 0 auto; padding: 70px 24px 30px; text-align: center; }
-.hero h1 { font-size: 46px; letter-spacing: -1px; margin-bottom: 14px; }
+.hero { max-width: 880px; margin: 0 auto; padding: 84px 24px 26px; text-align: center; }
+.eyebrow { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: var(--accent-2); background: #4f86f714; border: 1px solid #4f86f733; border-radius: 999px; padding: 5px 13px; margin-bottom: 20px; }
+.hero h1 { font-size: clamp(34px, 5.4vw, 58px); letter-spacing: -1.5px; margin-bottom: 18px; line-height: 1.05; }
 .hero h1 .gmaps { font-weight: inherit; }
 /* Official Google brand colors: G-o-o-g-l-e in blue/red/yellow/blue/green/red, "Maps" in Google grey */
 .hero h1 .c-b { color: #4285F4; }
@@ -295,12 +301,14 @@ input[type="checkbox"] { accent-color: var(--accent-2); width: 15px; height: 15p
 .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 .cta .btn { padding: 12px 20px; font-size: 15px; }
 
-.cards { max-width: 1100px; margin: 30px auto; padding: 0 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-.card { background: linear-gradient(180deg, var(--panel), #101626); border: 1px solid var(--line); border-radius: 14px; padding: 24px; transition: 0.15s; display: block; color: inherit; }
-.card:hover { border-color: #3a4f7e; transform: translateY(-2px); text-decoration: none; box-shadow: var(--shadow); }
-.card h3 { font-size: 20px; }
+.cards { max-width: 1100px; margin: 30px auto; padding: 0 24px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.card { background: linear-gradient(180deg, var(--panel), #101626); border: 1px solid var(--line); border-radius: 14px; padding: 24px; transition: 0.18s ease; display: flex; flex-direction: column; color: inherit; }
+.card:hover { border-color: #3a4f7e; transform: translateY(-3px); text-decoration: none; box-shadow: var(--shadow); }
+.card h3 { font-size: 19px; }
 .card .emoji { font-size: 30px; margin-bottom: 8px; }
-.card p { color: var(--muted); line-height: 1.55; margin: 0; }
+.card p { color: var(--muted); line-height: 1.55; margin: 0; font-size: 14px; }
+.card-go { margin-top: 14px; color: var(--accent-2); font-weight: 700; font-size: 13px; }
+.card:hover .card-go { text-decoration: underline; }
 
 .features { max-width: 1100px; margin: 40px auto; padding: 0 24px; }
 .features h2 { text-align: center; font-size: 26px; margin-bottom: 24px; }
@@ -316,6 +324,26 @@ input[type="checkbox"] { accent-color: var(--accent-2); width: 15px; height: 15p
 .algo-pill { display: inline-flex; align-items: center; gap: 8px; background: #131b2d; border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; font-size: 13px; font-weight: 600; }
 
 .footer { text-align: center; color: var(--muted-2); padding: 40px 24px 60px; font-size: 13px; line-height: 1.7; }
+
+/* ── Home: shared section headers ─────────────────────────────────────────── */
+.section-title { text-align: center; font-size: clamp(22px, 3vw, 28px); letter-spacing: -0.5px; margin-bottom: 10px; }
+.section-sub { text-align: center; color: var(--muted); max-width: 680px; margin: 0 auto 28px; line-height: 1.6; font-size: 15px; }
+.btn.ghost-btn { background: transparent; }
+.btn.ghost-btn:hover { background: #ffffff0c; }
+
+/* ── Home: the "story" timeline ───────────────────────────────────────────── */
+.story { max-width: 980px; margin: 56px auto 10px; padding: 0 24px; }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; counter-reset: step; }
+.step { position: relative; background: linear-gradient(180deg, var(--panel), #101626); border: 1px solid var(--line); border-radius: 14px; padding: 22px 22px 20px 58px; }
+.step-no { position: absolute; left: 16px; top: 20px; width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; font-weight: 800; font-size: 14px; color: #0b0f1a; background: linear-gradient(135deg, var(--accent), #f0c45e); }
+.step h3 { font-size: 16px; margin-bottom: 6px; }
+.step p { color: var(--muted); font-size: 13.5px; line-height: 1.55; margin: 0; }
+.step:nth-child(3) .step-no { background: linear-gradient(135deg, #4285F4, #34A853); color: #fff; }
+.step:nth-child(4) .step-no { background: linear-gradient(135deg, #34A853, #FBBC05); color: #0b0f1a; }
+.callout { max-width: 980px; margin: 22px auto 0; padding: 18px 22px; display: flex; align-items: center; gap: 16px; background: radial-gradient(600px 200px at 0% 0%, #19233e, #101626); border: 1px solid var(--line); border-radius: 14px; }
+.callout .badge-maps { flex-shrink: 0; font-size: 11px; padding: 4px 10px; }
+.callout p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.55; }
+.callout b { color: var(--text); }
 
 /* ============================================================================
    Learn page
@@ -354,8 +382,11 @@ input[type="checkbox"] { accent-color: var(--accent-2); width: 15px; height: 15p
   .layout { grid-template-columns: 1fr; height: auto; }
   .sidebar { overflow: visible; min-height: 0; padding-right: 0; }
   #panel-stage { height: 68vh; min-height: 440px; }
-  .cards { grid-template-columns: 1fr; }
   .feature-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 920px) {
+  .cards { grid-template-columns: 1fr; }
+  .steps { grid-template-columns: 1fr; }
 }
 @media (max-width: 820px) {
   #panel-stage { height: 60vh; min-height: 360px; }

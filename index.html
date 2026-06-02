@@ -9,82 +9,135 @@
 </head>
 <body>
   <header class="topbar">
-    <span class="brand"><span class="logo"></span> Pathfinding Atlas</span>
+    <a class="brand" href="./"><span class="logo"></span> Pathfinding Atlas</a>
     <nav>
-      <a href="index.html" class="active">Home</a>
+      <a href="./" class="active">Home</a>
       <a href="map.html">Map</a>
       <a href="graph.html">Graphs</a>
       <a href="learn.html">Learn</a>
     </nav>
     <span class="spacer"></span>
-    <span class="ghost">Dijkstra · A* · Bidirectional · ALT · CH · CCH</span>
+    <a class="topbar-cta" href="map.html">Open the map →</a>
   </header>
 
   <section class="hero">
+    <span class="eyebrow">Interactive · open source · no install</span>
     <h1>How does <span class="gmaps"><span class="c-b">G</span><span class="c-r">o</span><span class="c-y">o</span><span class="c-b">g</span><span class="c-g">l</span><span class="c-r">e</span> <span class="c-m">Maps</span></span> actually work?</h1>
     <p class="lead">
-      An interactive lab for the algorithms behind modern routing — from textbook
-      Dijkstra all the way to Customizable Contraction Hierarchies. Watch them
-      race on a fake Google-Maps road network and on enormous weighted graphs,
-      then read the guides that explain exactly what you're seeing.
+      Watch the real routing algorithms — from textbook Dijkstra to the
+      Contraction Hierarchies inside production map routers — race across a
+      <b>real OpenStreetMap road network</b> and on weighted graphs and mazes.
+      Then read the guides that explain exactly what you're seeing.
     </p>
     <div class="cta">
-      <a class="btn primary" href="map.html">🗺️ Explore the Map</a>
-      <a class="btn" href="graph.html">🕸️ Attack the Graphs</a>
-      <a class="btn" href="learn.html">📖 Read the Guides</a>
+      <a class="btn primary" href="map.html">🗺️ Explore the real map</a>
+      <a class="btn" href="graph.html">🕸️ Attack the graphs</a>
+      <a class="btn ghost-btn" href="learn.html">📖 Read the guides</a>
+    </div>
+  </section>
+
+  <!-- The narrative the whole project is built around. -->
+  <section class="story">
+    <h2 class="section-title">The route from <i>“correct”</i> to <i>“instant”</i></h2>
+    <p class="section-sub">A continent has hundreds of millions of road segments. Plain shortest-path search is correct but far too slow for a live query. Here's how routers close the gap — the same path this site lets you watch step by step.</p>
+    <ol class="steps">
+      <li class="step">
+        <span class="step-no">1</span>
+        <h3>Explore outward — Dijkstra</h3>
+        <p>Dijkstra's algorithm fans out from the start, always expanding the cheapest-so-far node. It always finds the shortest route, but explores in <em>every</em> direction — millions of nodes for a long trip.</p>
+      </li>
+      <li class="step">
+        <span class="step-no">2</span>
+        <h3>Aim at the goal — A*</h3>
+        <p>A* adds a heuristic — a straight-line lower bound on the remaining time — so the search leans toward the destination instead of spreading evenly. Same optimal route, far fewer nodes touched.</p>
+      </li>
+      <li class="step">
+        <span class="step-no">3</span>
+        <h3>Skip the boring roads — Contraction Hierarchies</h3>
+        <p>Most of a long trip is highways. CH <b>preprocesses</b> the map once into <em>shortcuts</em> that jump over unimportant streets, so a live query checks a few hundred nodes instead of millions. This is the core trick in real routers.</p>
+      </li>
+      <li class="step">
+        <span class="step-no">4</span>
+        <h3>Keep up with traffic — Customizable CH</h3>
+        <p>When live traffic changes every edge weight, rebuilding from scratch is too slow. CCH separates the structure from the metric, so it re-customizes in milliseconds — which is how your ETA stays current.</p>
+      </li>
+    </ol>
+    <div class="callout">
+      <span class="badge badge-maps">Used by Google Maps</span>
+      <p><b>Contraction Hierarchies and its customizable variant (CCH)</b> are what production routers like Google Maps and OSRM actually run. On this site they carry the <b>Maps</b> badge — select them and watch them leave Dijkstra behind.</p>
     </div>
   </section>
 
   <section class="cards">
     <a class="card" href="map.html">
       <div class="emoji">🗺️</div>
-      <h3>Real-world mapping</h3>
-      <p>A procedurally generated road network with named cities, highways,
-      arterials and local streets — weighted by travel time, so the shortest
-      path is the <b>fastest route</b>. Pick two cities, add rush-hour traffic,
-      and race the algorithms a real router would use.</p>
+      <h3>Real-world map</h3>
+      <p>Route across <b>actual OpenStreetMap streets</b> — Monaco, Midtown
+      Manhattan, Cambridge — weighted by travel time, so the shortest path is
+      the <b>fastest route</b>. Pick two points, add rush-hour traffic, and watch
+      the algorithm a real router would use.</p>
+      <span class="card-go">Open the map →</span>
     </a>
     <a class="card" href="graph.html">
       <div class="emoji">🕸️</div>
-      <h3>Weighted graphs &amp; mazes</h3>
-      <p>Mazes, weighted terrain grids, huge geometric meshes, and even a
-      negative-weight graph for Bellman–Ford. Scale them into the hundreds of
-      thousands of nodes and feel why preprocessing wins.</p>
+      <h3>Weighted &amp; unweighted graphs</h3>
+      <p>Two labs in one. <b>Unweighted</b>: BFS, DFS and Bidirectional BFS on
+      mazes and grids — fewest steps. <b>Weighted</b>: Dijkstra → A* → CH → CCH on
+      terrain, huge meshes, even negative weights — lowest cost, at scale.</p>
+      <span class="card-go">Attack the graphs →</span>
+    </a>
+    <a class="card" href="learn.html">
+      <div class="emoji">📖</div>
+      <h3>The guides</h3>
+      <p>In-app deep-dives for every algorithm — how it works, complexity, pros
+      and cons, pseudocode — plus long-form articles and a glossary that follow
+      the same story from BFS to CCH.</p>
+      <span class="card-go">Read the guides →</span>
     </a>
   </section>
 
   <section class="features">
-    <h2>What's inside</h2>
+    <h2 class="section-title">What's inside</h2>
     <div class="feature-grid">
-      <div class="feature"><div class="ic">🏁</div><h4>Side-by-side races</h4><p>Run any subset of 10 algorithms together in synchronized small-multiples, or one at a time in full detail.</p></div>
+      <div class="feature"><div class="ic">🏁</div><h4>Side-by-side races</h4><p>Run any subset of the algorithms together in synchronized small-multiples, or one at a time in full detail.</p></div>
       <div class="feature"><div class="ic">📊</div><h4>Live metrics</h4><p>Nodes settled, frontier peak, path cost, hops, query time and preprocessing time — updated as the search runs.</p></div>
       <div class="feature"><div class="ic">⏱️</div><h4>Benchmark mode</h4><p>Average query time over many random routes, with speedups vs Dijkstra and an automatic optimality check.</p></div>
-      <div class="feature"><div class="ic">🔥</div><h4>Heatmaps &amp; playback</h4><p>Step, pause, scrub speed, toggle the frontier, and switch on a distance heatmap of the explored region.</p></div>
+      <div class="feature"><div class="ic">✅</div><h4>Optimality, made clear</h4><p>Each algorithm is grouped by whether it returns the shortest path <em>on the current graph</em> — and tells you when it won't.</p></div>
       <div class="feature"><div class="ic">🚦</div><h4>Live traffic</h4><p>Change traffic on the map and watch why CCH re-customizes instead of rebuilding from scratch.</p></div>
-      <div class="feature"><div class="ic">🎓</div><h4>Full guides</h4><p>In-app explanations for every algorithm plus eight long-form articles and a glossary on the Learn page.</p></div>
+      <div class="feature"><div class="ic">🎓</div><h4>Full guides</h4><p>In-app explanations for every algorithm plus long-form articles and a glossary on the Learn page.</p></div>
     </div>
   </section>
 
   <section class="algos-strip">
-    <h2>Ten algorithms, one common engine</h2>
+    <h2 class="section-title"><span id="algo-count">Several</span> algorithms, one common engine</h2>
     <div class="algo-pills" id="pills"></div>
   </section>
 
   <div class="footer">
-    Built as an educational sandbox, inspired by Veritasium's
-    <i>"How Does Google Maps Actually Work?"</i> — extended with the real
+    Built as an educational sandbox, inspired by the video
+    <i>“How Does Google Maps Actually Work?”</i> — extended with the real
     techniques (ALT, Contraction Hierarchies, Customizable CH) used in
     production routers.<br />
-    Pure HTML/CSS/JS — runs on any static server (VS Code Live Server).
+    Pure HTML/CSS/JS — runs on any static server. Map tiles &amp; data ©
+    OpenStreetMap contributors.
   </div>
 
   <script type="module">
     import { ALGORITHMS } from './js/algorithms/index.js';
+    // "N algorithms, one common engine" — N spelled out, dynamic to the registry.
+    const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven',
+      'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen',
+      'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
+    const n = ALGORITHMS.length;
+    const word = WORDS[n] || String(n);
+    document.getElementById('algo-count').textContent = word.charAt(0).toUpperCase() + word.slice(1);
+
     const pills = document.getElementById('pills');
     for (const a of ALGORITHMS) {
       const span = document.createElement('span');
       span.className = 'algo-pill';
-      span.innerHTML = `<span class="swatch" style="background:${a.color}"></span>${a.name}`;
+      span.innerHTML = `<span class="swatch" style="background:${a.color}"></span>${a.name}` +
+        (a.production ? ' <span class="badge badge-maps">Maps</span>' : '');
       pills.append(span);
     }
   </script>
