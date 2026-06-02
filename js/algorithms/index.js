@@ -23,6 +23,23 @@ import { customizableCH, preprocessCCH } from './customizable-ch.js';
 import { jps } from './jps.js';
 import { thetaStar } from './theta-star.js';
 import { dstarLite } from './dstar-lite.js';
+import { dfs } from './dfs.js';
+import { bidirectionalBfs } from './bidirectional-bfs.js';
+
+// Top-level split the UI groups by: algorithms designed for UNWEIGHTED graphs
+// (fewest edges) vs WEIGHTED graphs (lowest total cost).
+export const DOMAINS = {
+  unweighted: {
+    label: 'Unweighted — fewest edges',
+    order: 0,
+    blurb: 'Ignore edge weights and minimise the number of steps. The first search algorithms you learn.',
+  },
+  weighted: {
+    label: 'Weighted — lowest cost',
+    order: 1,
+    blurb: 'Account for edge weights (distance / travel time) to find the cheapest route. Dijkstra and everything built on it.',
+  },
+};
 
 export const CATEGORIES = {
   classic: { label: 'Classic', order: 0 },
@@ -201,7 +218,58 @@ export const ALGORITHMS = [
     supportsNegative: false,
     blurb: 'Incremental replanning from the goal — what robots use when the map changes.',
   },
+  {
+    id: 'dfs',
+    name: 'Depth-First Search',
+    short: 'DFS',
+    color: '#7c8aa8',
+    category: 'classic',
+    run: dfs,
+    optimal: false, // returns *a* path, never guaranteed shortest
+    needsHeuristic: false,
+    supportsNegative: true,
+    blurb: 'Dives down one branch first. Finds *a* path, not the shortest.',
+  },
+  {
+    id: 'bidirectional-bfs',
+    name: 'Bidirectional BFS',
+    short: 'Bi-BFS',
+    color: '#5fb0c9',
+    category: 'bidirectional',
+    run: bidirectionalBfs,
+    optimal: false, // fewest-edges; optimal only on equal-weight graphs
+    needsHeuristic: false,
+    supportsNegative: true,
+    blurb: 'BFS from both ends — fewest-edges path, meeting in the middle.',
+  },
 ];
+
+// Domain (which UI section), one-line purpose, and which are used by real
+// production routers. Applied here so the entries above stay compact.
+const DOMAIN = { bfs: 'unweighted', dfs: 'unweighted', 'bidirectional-bfs': 'unweighted' };
+const PURPOSE = {
+  bfs: 'Shortest path by number of steps on unweighted graphs (friend-of-a-friend, web crawling).',
+  dfs: 'Reach the goal or explore everything (maze carving, cycle detection) — not for shortest paths.',
+  'bidirectional-bfs': 'Fewest-steps path, faster than BFS by meeting in the middle.',
+  dijkstra: 'The shortest route when edges have different lengths/times — the routing baseline.',
+  'bellman-ford': 'Shortest paths when some edges are negative (currency arbitrage, scheduling).',
+  greedy: "A quick 'good enough' route when speed matters more than optimality.",
+  astar: 'Fast optimal routing with a sense of direction — games, robotics, maps.',
+  'bidirectional-dijkstra': "Halve Dijkstra's work for point-to-point queries.",
+  'bidirectional-astar': 'Goal-directed and meet-in-the-middle combined.',
+  alt: 'Sharper A* on road networks via precomputed landmark distances.',
+  'contraction-hierarchies': 'Continental routing in microseconds — the core of production map routers (Google Maps, OSRM).',
+  'customizable-ch': 'CH that re-optimises in milliseconds when live traffic changes — what keeps map ETAs current.',
+  jps: 'Grid game pathfinding — A* with huge speedups on uniform grids.',
+  'theta-star': 'Natural any-angle paths for robots & games (no zig-zag along grid lines).',
+  'dstar-lite': 'Re-plan cheaply when the map changes mid-route — robotics, Mars rovers.',
+};
+const PRODUCTION = new Set(['contraction-hierarchies', 'customizable-ch']);
+for (const a of ALGORITHMS) {
+  a.domain = DOMAIN[a.id] || 'weighted';
+  a.purpose = PURPOSE[a.id] || a.blurb;
+  a.production = PRODUCTION.has(a.id);
+}
 
 export const byId = Object.fromEntries(ALGORITHMS.map((a) => [a.id, a]));
 
