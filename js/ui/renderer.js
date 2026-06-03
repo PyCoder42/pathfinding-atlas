@@ -714,4 +714,22 @@ export class Renderer {
     cv.addEventListener('mouseleave', onLeave);
     this._interaction = { onDown, onMove, onUp, onWheel, onLeave };
   }
+
+  // Remove every listener enableInteraction added — critically the window-level
+  // 'mouseup', which would otherwise outlive the canvas and keep this renderer
+  // (and its graph) alive on every re-mount. The Visualizer calls destroy() on
+  // each renderer when it tears down a view (see _mountRenderers).
+  destroy() {
+    const i = this._interaction;
+    if (!i) return;
+    const cv = this.canvas;
+    if (cv) {
+      cv.removeEventListener('mousedown', i.onDown);
+      cv.removeEventListener('mousemove', i.onMove);
+      cv.removeEventListener('wheel', i.onWheel);
+      cv.removeEventListener('mouseleave', i.onLeave);
+    }
+    window.removeEventListener('mouseup', i.onUp);
+    this._interaction = null;
+  }
 }

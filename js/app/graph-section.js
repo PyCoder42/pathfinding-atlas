@@ -61,6 +61,7 @@ function setDomain(d) {
   const def = DOMAINS[d].defaults;
   state.type = def.type;
   state.weighted = def.weighted;
+  state.diagonal = false; // start each domain on a clean 4-connected (uniform) grid
   vis.selected = new Set(def.selected);
   vis.focus = def.focus;
   buildControls();
@@ -103,7 +104,7 @@ function buildControls() {
   }
   p.append(tabs);
   p.append(el('div', { class: 'hint domain-blurb' }, state.domain === 'unweighted'
-    ? 'Minimise the number of steps — BFS, DFS and Bidirectional BFS, the first search algorithms you learn. Every edge costs the same here.'
+    ? 'Minimise the number of steps — BFS, DFS and Bidirectional BFS, the first search algorithms you learn. On a 4-connected grid every edge costs the same; turn on 8-direction and diagonals cost √2, so BFS is no longer optimal — watch it drop out of “Recommended”.'
     : 'Minimise total cost (distance / time) — Dijkstra and everything built on it, up to the hierarchies real routers use.'));
 
   // Scenario type (the options depend on the domain).

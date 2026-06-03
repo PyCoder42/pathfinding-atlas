@@ -45,17 +45,16 @@ for (const el of raw) {
   else if (el.type === 'way' && el.tags && DRIVABLE.has(el.tags.highway)) ways.push(el);
 }
 
-// Build directed edges between consecutive way nodes; collect used node ids.
+// Build edges between consecutive way nodes; collect used node ids. Roads are
+// treated as two-way by the consumer (osm-map.js), so we don't track oneway.
 const used = new Set();
-const rawEdges = []; // {a,b,w,cls,oneway, name}
+const rawEdges = []; // {a,b,w,cls, name}
 let maxSpeed = 1;
 for (const w of ways) {
   const hw = w.tags.highway;
   const [cls, defSpeed] = defaultFor(hw);
   const speed = parseSpeed(w.tags.maxspeed, defSpeed);
   if (speed > maxSpeed) maxSpeed = speed;
-  const oneway = w.tags.oneway === 'yes' || w.tags.oneway === 'true' || w.tags.oneway === '1' ? 1
-    : w.tags.oneway === '-1' ? -1 : 0;
   const ns = w.nodes;
   for (let i = 0; i + 1 < ns.length; i++) {
     const a = ns[i], b = ns[i + 1];
@@ -64,7 +63,7 @@ for (const w of ways) {
     const km = hav(ca.lat, ca.lon, cb.lat, cb.lon);
     if (km <= 0) continue;
     const minutes = (km / speed) * 60;
-    rawEdges.push({ a, b, w: minutes, cls, oneway, name: w.tags.name || null });
+    rawEdges.push({ a, b, w: minutes, cls, name: w.tags.name || null });
     used.add(a); used.add(b);
   }
 }
@@ -99,9 +98,9 @@ for (let i = 0; i < ids.length; i++) {
   NAME.push(null);
 }
 
-// edges referencing reindexed nodes
-const seen = new Set();
-const E = [];
+// edges referencing reindexed nodes — keep one record per undirected pair,
+// choosing the minimum-weight one (e.g. when service/residential ways overlap).
+const bestEdge = new Map(); // undirected key -> [u, v, w, clsCode]
 const clsCode = { local: 0, arterial: 1, highway: 2 };
 for (const e of rawEdges) {
   const ia = idx.get(e.a), ib = idx.get(e.b);
@@ -109,11 +108,11 @@ for (const e of rawEdges) {
   const u = newIndex.get(ia), v = newIndex.get(ib);
   if (u === v) continue;
   const key = u < v ? u + ':' + v : v + ':' + u;
-  // keep one record per undirected pair (min weight); track oneway
-  if (seen.has(key)) continue;
-  seen.add(key);
-  E.push([u, v, +e.w.toFixed(3), clsCode[e.cls], e.oneway]);
+  const w = +e.w.toFixed(3);
+  const prev = bestEdge.get(key);
+  if (!prev || w < prev[2]) bestEdge.set(key, [u, v, w, clsCode[e.cls]]);
 }
+const E = [...bestEdge.values()];
 
 // POIs: representative node per distinct street name (for the From/To dropdowns).
 const byName = new Map();

@@ -1,31 +1,57 @@
 // leaflet-renderer.js
 // A Renderer that draws the search animation on top of a REAL slippy map
-// (Leaflet + OpenStreetMap tiles), instead of the self-contained canvas basemap.
+// (Leaflet + modern raster tiles), instead of the self-contained canvas basemap.
 //
 // The trick: the whole canvas Renderer routes every coordinate through
 // worldToScreen()/screenToWorld(). So we subclass it and override ONLY those two
 // projections (graph-km ↔ Leaflet container pixel) plus a transparent base layer
-// — and inherit all of the search state, overlay compositing, path and marker
-// drawing for free. The OSM tiles ARE the basemap; we paint settled/frontier/
-// path on a transparent canvas pinned over the map and redraw on every pan/zoom.
+// — and inherit all of the search state, overlay compositing and path drawing
+// for free. The tiles ARE the basemap; we paint settled/frontier/path on a
+// transparent canvas pinned over the map and redraw on every pan/zoom.
 //
-// Requires the global `L` (Leaflet) to be loaded (see js/vendor/leaflet). The
-// graph must carry `geo = {lat0, lon0, kmPerLat, kmPerLon}` (baked by tools/
-// bake-osm.js). If either is missing the section falls back to the plain
-// canvas Renderer, so this path is never the only thing standing between the
-// user and a working map.
+// To get as close to Google-Maps quality as a keyless static site can:
+//   • CARTO "Voyager" retina vector-style tiles as the default street map,
+//   • an Esri World-Imagery satellite layer (with place labels) one toggle away,
+//   • a Google-style route (blue core + white casing) and A/B teardrop pins,
+//   • repaints coalesced into one rAF per pan/zoom burst so big graphs stay smooth.
+//
+// Requires the global `L` (Leaflet). The graph must carry
+// `geo = {lat0, lon0, kmPerLat, kmPerLon}` (baked by tools/bake-osm.js). If
+// either is missing the section falls back to the plain canvas Renderer, so this
+// path is never the only thing between the user and a working map.
 
 import { Renderer } from './renderer.js';
 
-const TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-const ATTRIB = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+// Keyless, retina-capable basemaps. {r} → "@2x" on hi-dpi via detectRetina.
+const BASEMAPS = {
+  streets: {
+    label: 'Map',
+    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    opts: {
+      subdomains: 'abcd', maxZoom: 20, detectRetina: true,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    },
+  },
+  satellite: {
+    label: 'Satellite',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    opts: {
+      maxZoom: 20, maxNativeZoom: 19,
+      attribution: 'Imagery &copy; <a href="https://www.esri.com/">Esri</a>, Maxar, Earthstar Geographics',
+    },
+    // Place / road labels painted over the imagery (like Google's "Satellite").
+    labels: 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+  },
+};
 
 export class LeafletRenderer extends Renderer {
   constructor(canvas, opts = {}) {
     super(canvas, opts);
     this.style = 'map';
     this.geo = opts.geo || null;
+    this.basemapKey = opts.basemap || 'streets';
     this._mapReady = false;
+    this._repaintScheduled = false;
     this._buildHost(canvas);
   }
 
@@ -42,6 +68,9 @@ export class LeafletRenderer extends Renderer {
     canvas.classList.add('leaflet-overlay-canvas');
     this.host = host;
 
+    // Start centred on the graph's own region (geo carries the bake centroid) so
+    // we never flash the [0,0] Gulf-of-Guinea tiles before fitBounds runs.
+    const center = this.geo ? [this.geo.lat0, this.geo.lon0] : [20, 0];
     this.map = L.map(mapDiv, {
       zoomControl: false,        // the stage already has Fit / + / − buttons
       attributionControl: true,
@@ -50,13 +79,70 @@ export class LeafletRenderer extends Renderer {
       markerZoomAnimation: false,
       doubleClickZoom: false,    // double-click is reserved for setting endpoints fast
       worldCopyJump: false,
-    }).setView([0, 0], 13);
-    L.tileLayer(TILE_URL, { maxZoom: 19, minZoom: 2, attribution: ATTRIB }).addTo(this.map);
+      preferCanvas: true,
+    }).setView(center, this.geo ? 14 : 3);
 
-    const onMove = () => { this._fullRepaint = true; this.render(); };
-    this.map.on('move zoom zoomend moveend resize', onMove);
+    this._baseLayer = null;
+    this._labelLayer = null;
+    this._setBasemap(this.basemapKey);
+    this._addLayerToggle();
+    L.control.scale({ imperial: false, position: 'bottomleft' }).addTo(this.map);
+
+    // Coalesce the flood of move/zoom events into one repaint per animation
+    // frame — panning a finished search on a 16k-node city would otherwise
+    // re-project every settled node many times per frame.
+    const onMove = () => this._scheduleRepaint();
+    this.map.on('move zoom zoomend moveend resize viewreset', onMove);
     this._onMove = onMove;
     this._mapReady = true;
+  }
+
+  _setBasemap(key) {
+    const L = window.L;
+    const def = BASEMAPS[key] || BASEMAPS.streets;
+    this.basemapKey = BASEMAPS[key] ? key : 'streets';
+    if (this._baseLayer) { this.map.removeLayer(this._baseLayer); this._baseLayer = null; }
+    if (this._labelLayer) { this.map.removeLayer(this._labelLayer); this._labelLayer = null; }
+    this._baseLayer = L.tileLayer(def.url, def.opts).addTo(this.map);
+    if (def.labels) {
+      this._labelLayer = L.tileLayer(def.labels, { maxZoom: 20, maxNativeZoom: 19, pane: 'overlayPane' }).addTo(this.map);
+    }
+    this._scheduleRepaint();
+  }
+
+  // Compact two-button basemap switch (Map / Satellite), styled in css/style.css.
+  _addLayerToggle() {
+    const L = window.L;
+    const ctl = L.control({ position: 'topright' });
+    ctl.onAdd = () => {
+      const div = L.DomUtil.create('div', 'map-layer-toggle');
+      for (const [key, def] of Object.entries(BASEMAPS)) {
+        const b = L.DomUtil.create('button', key === this.basemapKey ? 'active' : '', div);
+        b.type = 'button';
+        b.textContent = def.label;
+        b.dataset.k = key;
+      }
+      L.DomEvent.disableClickPropagation(div);
+      L.DomEvent.on(div, 'click', (e) => {
+        const b = e.target.closest('button');
+        if (!b) return;
+        this._setBasemap(b.dataset.k);
+        div.querySelectorAll('button').forEach((x) => x.classList.toggle('active', x === b));
+      });
+      return div;
+    };
+    ctl.addTo(this.map);
+    this._layerToggle = ctl;
+  }
+
+  _scheduleRepaint() {
+    if (this._repaintScheduled || !this._mapReady) return;
+    this._repaintScheduled = true;
+    requestAnimationFrame(() => {
+      this._repaintScheduled = false;
+      this._fullRepaint = true;
+      this.render();
+    });
   }
 
   // graph km → pixel relative to the map container (== the overlay canvas origin)
@@ -76,7 +162,7 @@ export class LeafletRenderer extends Renderer {
     return [(ll.lng - g.lon0) * g.kmPerLon, -(ll.lat - g.lat0) * g.kmPerLat];
   }
 
-  // The OSM tiles are the basemap, so the base layer stays fully transparent.
+  // The tiles are the basemap, so the base layer stays fully transparent.
   rebuildBase() {
     if (!this._baseCtx) return;
     this._baseCtx.setTransform(this._dpr, 0, 0, this._dpr, 0, 0);
@@ -104,7 +190,7 @@ export class LeafletRenderer extends Renderer {
     const g = this.geo;
     const toLL = (x, y) => [g.lat0 - y / g.kmPerLat, g.lon0 + x / g.kmPerLon];
     const bounds = window.L.latLngBounds(toLL(b.minX, b.minY), toLL(b.maxX, b.maxY));
-    this.map.fitBounds(bounds, { padding: [24, 24], animate: false });
+    this.map.fitBounds(bounds, { padding: [28, 28], animate: false });
     this._fullRepaint = true;
     this.rebuildBase();
     this.render();
@@ -156,9 +242,76 @@ export class LeafletRenderer extends Renderer {
     return best;
   }
 
+  // ── Google-style route + pins (override the dark-canvas versions, which are
+  // tuned for the night-mode graph pages and would vanish on light tiles). ──
+  _drawPath(ctx) {
+    if (!this.path || this.path.length < 2) return;
+    const g = this.graph;
+    const pts = this.path.map((id) => this.worldToScreen(g.x[id], g.y[id]));
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    const trace = () => {
+      ctx.beginPath();
+      for (let i = 0; i < pts.length; i++) {
+        const [x, y] = pts[i];
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    };
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.25)';
+    ctx.shadowBlur = 4;
+    ctx.strokeStyle = 'rgba(255,255,255,0.95)'; // white casing
+    ctx.lineWidth = 9;
+    trace();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = '#1a73e8';                // Google route blue
+    ctx.lineWidth = 5.5;
+    trace();
+    ctx.restore();
+  }
+
+  _drawMarkers(ctx) {
+    this._pin(ctx, this.start, '#1a73e8', 'A');
+    this._pin(ctx, this.goal, '#ea4335', 'B');
+  }
+
+  _pin(ctx, node, color, label) {
+    if (node < 0 || node >= this.graph.n) return;
+    const [x, y] = this.worldToScreen(this.graph.x[node], this.graph.y[node]);
+    const r = 11;        // head radius
+    const cy = y - 26;   // head centre sits above the tip
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.4)';
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetY = 2;
+    ctx.beginPath();
+    ctx.arc(x, cy, r, 0, Math.PI * 2);          // head
+    ctx.moveTo(x - r * 0.6, cy + r * 0.78);     // tail triangle → tip
+    ctx.lineTo(x, y);
+    ctx.lineTo(x + r * 0.6, cy + r * 0.78);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(x, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '700 12px ' + '-apple-system, system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, x, cy + 0.5);
+    ctx.restore();
+    ctx.textAlign = 'start';
+  }
+
   // Called by the Visualizer when this renderer is being torn down / replaced,
   // so we don't leak Leaflet maps and their window listeners across re-mounts.
   destroy() {
+    super.destroy();
     try {
       if (this.map) { this.map.off(); this.map.remove(); this.map = null; }
       if (this.host && this.host.parentNode) this.host.parentNode.removeChild(this.host);

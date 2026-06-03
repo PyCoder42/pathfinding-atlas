@@ -89,9 +89,13 @@ export class Visualizer {
         el('button', {
           class: 'chip',
           onclick: () => {
-            this.selected = new Set(ids);
-            if (ids.length && !this.selected.has(this.focus)) this.focus = ids[0];
-            this._syncAlgoChecks();
+            // Prune ids that can't run on the current graph (e.g. JPS on a maze)
+            // so a preset never leaves an inapplicable algorithm checked or a
+            // phantom metrics row behind. `!this.graph` => flat list, no-op.
+            const ok = ids.filter((id) => !this.graph || safeFor(id, this.graph).ok);
+            this.selected = new Set(ok);
+            if (ok.length && !this.selected.has(this.focus)) this.focus = ok[0];
+            this._buildAlgoPanel(); // re-prunes na + re-syncs checkbox disabled state
             this._buildMetrics();
             this._renderExplain();
           },

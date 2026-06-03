@@ -124,6 +124,10 @@ installTools(vis);
 (async () => {
   const shared = readStateFromURL();
   if (shared && shared.section === 'map' && shared.st) Object.assign(state, shared.st);
+  // A shared URL could carry a place key we no longer ship — fall back to the
+  // default so the dropdown, state, and the fetched data file stay in sync.
+  if (!PLACES.some((pl) => pl.key === state.place)) state.place = PLACES[0].key;
+  if (!TRAFFIC[state.traffic]) state.traffic = 'none';
   buildControls();
   await loadPlace();
   if (shared && shared.section === 'map') {
