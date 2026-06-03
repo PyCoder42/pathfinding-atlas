@@ -294,6 +294,24 @@ const NEEDS_NONNEGATIVE = new Set([
   'alt', 'contraction-hierarchies', 'customizable-ch', 'jps', 'theta-star', 'dstar-lite',
 ]);
 
+// The SIZE_GUARDS are "soft": they exist to stop the browser locking up for many
+// seconds, NOT because the result would be wrong. A power user on a fast machine
+// can switch them off to force a heavy algorithm (CH/CCH/ALT, Bellman–Ford) onto
+// a graph past its node ceiling — at their own risk (the tab may freeze while it
+// preprocesses/runs). Hard guards (negative weights, grid/diagonal/uniform) are
+// about correctness and are NEVER bypassed. Default ON, so the tests are unchanged.
+let IGNORE_SIZE_LIMITS = false;
+export function setIgnoreSizeLimits(on) { IGNORE_SIZE_LIMITS = !!on; }
+export function getIgnoreSizeLimits() { return IGNORE_SIZE_LIMITS; }
+// The node ceiling for an algorithm (or null if it has none) — for UI warnings.
+export function sizeGuardFor(algoId) { return SIZE_GUARDS[algoId] || null; }
+// Is `algoId` past its node ceiling on `graph`? Independent of the override, so
+// the UI can still flag "running beyond the safe size" while it's allowed.
+export function exceedsSizeLimit(algoId, graph) {
+  const g = SIZE_GUARDS[algoId];
+  return !!(g && graph && graph.n > g.maxNodes);
+}
+
 export function safeFor(algoId, graph) {
   const algo = byId[algoId];
   if (!algo || !graph) return { ok: false, reason: 'unknown' };
@@ -310,7 +328,9 @@ export function safeFor(algoId, graph) {
     return { ok: false, reason: 'uniform-cost grids only (turn off terrain weights)' };
   }
   const g = SIZE_GUARDS[algoId];
-  if (g && graph.n > g.maxNodes) return { ok: false, reason: g.reason };
+  if (g && graph.n > g.maxNodes && !IGNORE_SIZE_LIMITS) {
+    return { ok: false, reason: g.reason, sizeLimited: true };
+  }
   return { ok: true };
 }
 

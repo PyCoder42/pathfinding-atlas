@@ -5,7 +5,10 @@
 // animated/raced visualization, benchmarking, metrics, and the explanation
 // panel — lives here so features land in both sections at once.
 
-import { ALGORITHMS, byId, safeFor, optimalityFor } from '../algorithms/index.js';
+import {
+  ALGORITHMS, byId, safeFor, optimalityFor,
+  setIgnoreSizeLimits, getIgnoreSizeLimits, exceedsSizeLimit, sizeGuardFor,
+} from '../algorithms/index.js';
 import { Renderer } from './renderer.js';
 import { Playback } from './playback.js';
 import { makeQuery, benchmark, getAux, drain } from '../core/runner.js';
@@ -123,6 +126,9 @@ export class Visualizer {
       const badges = [];
       if (a.production) badges.push(el('span', { class: 'badge badge-maps', title: 'Used by production routers like Google Maps' }, 'Maps'));
       if (a.preprocess) badges.push(el('span', { class: 'tag tag-pre', title: 'Preprocesses the graph before queries' }, 'pre'));
+      if (graph && getIgnoreSizeLimits() && exceedsSizeLimit(a.id, graph)) {
+        badges.push(el('span', { class: 'tag tag-warn', title: 'Beyond its safe size on this graph — may be slow or freeze the tab' }, '⚠ slow'));
+      }
       return el('label', { class: 'algo-row' + (na ? ' is-na' : ''), title: `${a.purpose}${opt ? ' — ' + opt.note : ''}` }, [
         cb,
         el('span', { class: 'swatch', style: { background: a.color } }),
@@ -140,6 +146,10 @@ export class Visualizer {
       for (const a of ALGORITHMS) p.append(mkRow(a, null));
       return;
     }
+
+    // Power-user escape hatch: switch off the soft node-ceiling guards so heavy
+    // algorithms can be forced onto large graphs (with a compute-aware warning).
+    p.append(this._buildSizeGuardToggle(graph));
 
     // Group by whether each algorithm returns the shortest path ON THIS graph.
     const buckets = { optimal: [], sub: [], na: [] };
@@ -163,6 +173,49 @@ export class Visualizer {
       for (const [a, opt] of buckets.na) det.append(mkRow(a, opt));
       p.append(det);
     }
+  }
+
+  // Toggle for the soft node-ceiling guards. Off by default; when a power user
+  // turns it on, the size-limited algorithms become selectable on the current
+  // (over-large) graph and we surface a warning scaled to their machine.
+  _buildSizeGuardToggle(graph) {
+    const on = getIgnoreSizeLimits();
+    const limited = ALGORITHMS.filter((a) => exceedsSizeLimit(a.id, graph));
+    const wrap = el('div', { class: 'size-guard' });
+    const cb = el('input', { type: 'checkbox' });
+    cb.checked = on;
+    cb.addEventListener('change', () => {
+      setIgnoreSizeLimits(cb.checked);
+      this._buildAlgoPanel();
+      this._buildMetrics();
+      this._renderExplain();
+      if (cb.checked) this._status(this._sizeWarningText(graph, limited));
+    });
+    wrap.append(el('label', {
+      class: 'toggle size-guard-toggle',
+      title: 'Run heavy algorithms past their safe node-count. May freeze the tab.',
+    }, [cb, '⚠ Ignore size limits (dangerous)']));
+    if (on && limited.length) {
+      wrap.append(el('div', { class: 'size-guard-warn' }, this._sizeWarningText(graph, limited)));
+    } else if (!on && limited.length) {
+      wrap.append(el('div', { class: 'hint' },
+        `${limited.length} algorithm${limited.length > 1 ? 's' : ''} hidden as too heavy for ${graph.n.toLocaleString()} nodes — toggle to force them.`));
+    }
+    return wrap;
+  }
+
+  // Warning text tuned to the visitor's hardware (cores / memory when exposed).
+  _sizeWarningText(graph, limited) {
+    const nav = typeof navigator !== 'undefined' ? navigator : {};
+    const cores = nav.hardwareConcurrency || 0;
+    const mem = nav.deviceMemory || 0;
+    const machine = cores ? `${cores} cores${mem ? ` · ${mem} GB` : ''}` : 'this machine';
+    const tone = cores >= 8
+      ? 'your machine should handle moderate overages, but very large graphs can still freeze the tab'
+      : 'this can freeze the tab on large graphs';
+    const ceil = (id) => { const g = sizeGuardFor(id); return g ? g.maxNodes : 0; };
+    const names = limited.map((a) => `${a.short} (>${ceil(a.id).toLocaleString()})`).join(', ') || 'none here yet';
+    return `Size limits OFF (${machine}) — ${tone}. Heaviest are CH/CCH/ALT and Bellman–Ford; beyond their safe size on ${graph.n.toLocaleString()} nodes: ${names}.`;
   }
 
   _syncAlgoChecks() {
