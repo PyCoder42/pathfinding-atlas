@@ -80,7 +80,7 @@ export class Visualizer {
 
     const presets = el('div', { class: 'presets' });
     const PRESETS = {
-      Recommended: ['dijkstra', 'astar', 'bidirectional-dijkstra', 'contraction-hierarchies'],
+      Recommended: ['bfs', 'dijkstra', 'bidirectional-dijkstra', 'astar', 'bidirectional-astar', 'contraction-hierarchies', 'customizable-ch'],
       Unweighted: ['bfs', 'dfs', 'bidirectional-bfs'],
       Heuristic: ['greedy', 'astar', 'alt'],
       'Google Maps': ['contraction-hierarchies', 'customizable-ch'],
@@ -134,7 +134,7 @@ export class Visualizer {
         el('span', { class: 'swatch', style: { background: a.color } }),
         el('span', {
           class: 'algo-name',
-          onclick: (e) => { e.preventDefault(); this.focus = a.id; this._renderExplain(); },
+          onclick: (e) => { e.preventDefault(); this._focusExplain(a.id); },
         }, a.short),
         ...badges,
       ]);
@@ -267,7 +267,7 @@ export class Visualizer {
 
     // visual toggles
     const tog = el('div', { class: 'toggles' });
-    const mkTog = (key, label) => {
+    const mkTog = (key, label, tip) => {
       const cb = el('input', { type: 'checkbox' });
       cb.checked = this.options[key];
       cb.addEventListener('change', () => {
@@ -279,15 +279,19 @@ export class Visualizer {
           r.render();
         });
       });
-      return el('label', { class: 'toggle' }, [cb, label]);
+      return el('label', { class: 'toggle', title: tip || '' }, [cb, label]);
     };
     tog.append(
-      mkTog('heatmap', 'Heatmap'),
-      mkTog('showFrontier', 'Frontier'),
-      mkTog('showEdges', 'Edges'),
-      mkTog('showLabels', 'Labels')
+      mkTog('heatmap', 'Heatmap', 'Colour settled nodes by WHEN the search reached them — cool = early/cheap, hot = late/expensive — so you can see the wavefront spread.'),
+      mkTog('showFrontier', 'Frontier', 'Show the open set: the ring of discovered-but-not-yet-settled nodes the search is about to expand next.'),
+      mkTog('showEdges', 'Edges', 'Draw the underlying graph edges / roads beneath the search.'),
+      mkTog('showLabels', 'Labels', 'Show place / node labels on the map.')
     );
     p.append(tog);
+    p.append(el('div', { class: 'hint' }, [
+      'New here? ',
+      el('a', { href: 'learn.html#reading-the-visualization' }, 'How to read the visualization →'),
+    ]));
 
     // benchmark options
     this.benchOpts = el('div', { class: 'bench-opts' });
@@ -555,9 +559,17 @@ export class Visualizer {
       return s.ok;
     });
     if (!ids.length) {
-      this._status('All selected algorithms are too heavy for this graph size.');
+      this._status('All selected algorithms are past their size limit here — tick “⚠ Ignore size limits” in the Algorithms panel to run them anyway.');
       return;
     }
+
+    // Ground-truth shortest cost for THIS query, so each row can show how far
+    // above optimal its path is (a fast finish ≠ a good route — e.g. Greedy).
+    this._optimalCost = Infinity;
+    try {
+      const base = this.graph.hasNegative ? byId['bellman-ford'] : byId.dijkstra;
+      this._optimalCost = drain(makeQuery(base, this.graph, this.start, this.goal, {})).cost;
+    } catch (e) { /* leave Infinity → column shows “—” */ }
 
     await this._mountRenderers(ids);
     this._buildMetrics();
@@ -619,6 +631,20 @@ export class Visualizer {
       c.frontier.textContent = fmtInt(res.stats.maxFrontier);
       c.cost.textContent = res.path ? fmtCost(res.cost, this.graph.weightKind) : '—';
       c.hops.textContent = res.path ? fmtInt(res.stats.pathLength) : '—';
+      // "vs best": how far this path is above the ground-truth shortest cost.
+      if (c.quality) {
+        const opt = this._optimalCost;
+        const status = optimalityFor(id, this.graph).status;
+        if (status === 'anyAngle') {
+          c.quality.textContent = '∡ any-angle'; c.quality.className = 'q-any';
+        } else if (!res.path || !Number.isFinite(res.cost) || !Number.isFinite(opt) || opt <= 0) {
+          c.quality.textContent = res.path ? '—' : 'no path'; c.quality.className = '';
+        } else {
+          const ratio = res.cost / opt;
+          if (ratio <= 1 + 1e-6) { c.quality.textContent = '✓ best'; c.quality.className = 'q-best'; }
+          else { c.quality.textContent = `+${((ratio - 1) * 100).toFixed(ratio < 1.1 ? 1 : 0)}%`; c.quality.className = 'q-over'; }
+        }
+      }
       // accurate query time via a quick re-run
       try {
         const b = benchmark(algo, this.graph, this.start, this.goal, {}, 1);
@@ -768,7 +794,7 @@ export class Visualizer {
     const table = el('table', { class: 'metrics' });
     const headCols = bench
       ? ['Algorithm', 'Query', 'vs Dijkstra', 'Settled', 'Preproc', 'Cost', 'Optimal']
-      : ['Algorithm', 'Settled', 'Frontier', 'Cost', 'Hops', 'Query', 'Preproc'];
+      : ['Algorithm', 'Settled', 'Frontier', 'Cost', 'vs best', 'Hops', 'Query', 'Preproc'];
     table.append(el('thead', {}, el('tr', {}, headCols.map((h) => el('th', {}, h)))));
     const tbody = el('tbody');
     this.rows = {};
@@ -778,26 +804,26 @@ export class Visualizer {
       const mk = () => el('td', {}, '—');
       const cells = bench
         ? { time: mk(), frontier: mk(), settled: mk(), pre: mk(), cost: mk(), hops: mk(), note: el('span', { class: 'note' }) }
-        : { settled: mk(), frontier: mk(), cost: mk(), hops: mk(), time: mk(), pre: mk() };
+        : { settled: mk(), frontier: mk(), cost: mk(), quality: mk(), hops: mk(), time: mk(), pre: mk() };
       const nameTd = el('td', { class: 'algo-cell' }, [
         el('span', { class: 'swatch', style: { background: a.color } }),
-        el('span', { class: 'name-link', onclick: () => { this.focus = id; this._renderExplain(); } }, a.short),
+        el('span', { class: 'name-link', onclick: () => this._focusExplain(id) }, a.short),
       ]);
       let tr;
       if (bench) {
         nameTd.append(cells.note);
         tr = el('tr', {}, [nameTd, cells.time, cells.frontier, cells.settled, cells.pre, cells.cost, cells.hops]);
       } else {
-        tr = el('tr', {}, [nameTd, cells.settled, cells.frontier, cells.cost, cells.hops, cells.time, cells.pre]);
+        tr = el('tr', {}, [nameTd, cells.settled, cells.frontier, cells.cost, cells.quality, cells.hops, cells.time, cells.pre]);
       }
       tbody.append(tr);
       this.rows[id] = { tr, cells };
     }
     table.append(tbody);
-    p.append(table);
+    p.append(el('div', { class: 'metrics-wrap' }, table));
     p.append(el('div', { class: 'metrics-hint', html: bench
       ? '<b>Settled</b> = nodes expanded. Fewer settled + lower time = better. CH/CCH trade big preprocessing for tiny queries.'
-      : '<b>Settled</b> grows live as each search expands nodes; <b>Frontier</b> is the open-set peak. Lower path <b>Cost</b> is better; optimal algorithms tie.' }));
+      : '<b>Settled</b> grows live as each search expands nodes; <b>Frontier</b> is the open-set peak. <b>vs best</b> = how far the returned path is above the shortest possible — <span class="q-best">✓ best</span> ties, <span class="q-over">+%</span> is longer. A fast finish (e.g. Greedy) does NOT mean a good route.' }));
   }
 
   _export() {
@@ -815,25 +841,59 @@ export class Visualizer {
   }
 
   // ── Explanation panel ──────────────────────────────────────────────────────
+  // The panel shows EVERY selected algorithm as a collapsible card. Clicking an
+  // algorithm name (in the list or the metrics) opens + scrolls to its card via
+  // _focusExplain, instead of swapping a single-algorithm view.
   _renderExplain() {
     const p = clear(this.explainPanel);
-    const a = byId[this.focus] || byId.dijkstra;
-    const ex = (EXPLANATIONS && EXPLANATIONS[this.focus]) || null;
-    p.append(
-      el('div', { class: 'explain-head' }, [
-        el('span', { class: 'swatch big', style: { background: a.color } }),
-        el('div', {}, [
-          el('h2', { class: 'panel-title' }, [a.name, a.production ? el('span', { class: 'badge badge-maps', title: 'Used by production routers like Google Maps' }, 'Maps') : null]),
-          el('div', { class: 'tagline' }, ex ? ex.tagline : a.blurb),
-        ]),
-      ])
-    );
+    const ids = [...this.selected];
+    if (!ids.length) {
+      p.append(el('p', { class: 'muted' }, 'Tick one or more algorithms to see how each one works.'));
+      return;
+    }
+    if (!ids.includes(this.focus)) this.focus = ids[0];
+    for (const id of ids) {
+      const a = byId[id];
+      const opt = this.graph ? optimalityFor(id, this.graph) : null;
+      const mark = !opt ? '' : opt.status === 'optimal' ? '✓' : opt.status === 'anyAngle' ? '∡' : opt.status === 'na' ? '—' : '≉';
+      const det = el('details', { class: 'explain-item', id: 'explain-' + id });
+      det.open = id === this.focus || ids.length === 1;
+      det.append(el('summary', { class: 'explain-summary' }, [
+        el('span', { class: 'swatch', style: { background: a.color } }),
+        el('span', { class: 'explain-name' }, a.name),
+        a.production ? el('span', { class: 'badge badge-maps', title: 'Used by production routers like Google Maps' }, 'Maps') : null,
+        opt ? el('span', { class: 'opt-mark opt-' + opt.status, title: opt.note }, mark) : null,
+      ]));
+      this._renderAlgoExplain(det, id);
+      p.append(det);
+    }
+  }
+
+  // Select (if applicable), then open + scroll to an algorithm's card.
+  _focusExplain(id) {
+    this.focus = id;
+    if (!this.selected.has(id) && (!this.graph || safeFor(id, this.graph).ok)) {
+      this.selected.add(id);
+      this._syncAlgoChecks();
+      this._buildMetrics();
+    }
+    this._renderExplain();
+    const safe = (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(id) : id;
+    const sec = this.explainPanel.querySelector('#explain-' + safe);
+    if (sec) { sec.open = true; sec.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+  }
+
+  // Render one algorithm's details into `p` (used per-card by _renderExplain).
+  _renderAlgoExplain(p, id) {
+    const a = byId[id] || byId.dijkstra;
+    const ex = (EXPLANATIONS && EXPLANATIONS[id]) || null;
+    p.append(el('div', { class: 'tagline' }, ex ? ex.tagline : a.blurb));
 
     // What is this algorithm FOR, and does it return the shortest path on the
     // graph currently loaded? (The "note in the sandbox".)
     p.append(el('div', { class: 'purpose-line' }, a.purpose));
     if (this.graph) {
-      const opt = optimalityFor(this.focus, this.graph);
+      const opt = optimalityFor(id, this.graph);
       const label = opt.status === 'optimal' ? '✓ Optimal on this graph'
         : opt.status === 'anyAngle' ? '∡ Any-angle — shorter than the grid path'
         : opt.status === 'na' ? '— Not available on this graph'

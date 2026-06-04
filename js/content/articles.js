@@ -223,6 +223,46 @@ A topology-only order can produce more shortcuts than a metric-aware CH order, s
 `,
   },
   {
+    id: 'reading-the-visualization',
+    category: 'Reference',
+    title: 'Reading the Visualization',
+    body: `
+# Reading the Visualization
+
+The sandbox does not just give you a route — it *shows you the search thinking*. Every algorithm in this app is a step-by-step process, and the canvas paints that process as it unfolds. This guide explains the colours, the overlays, and the four toggles (**Heatmap**, **Frontier**, **Edges**, **Labels**) so you can read what is on screen at a glance.
+
+## Heatmap — see the wavefront
+
+This is the most revealing view. With **Heatmap** on, every **settled** node is coloured by *when the search reached it* — that is, by the order or distance at which the algorithm got to it. The colours run on a **cool → hot gradient**:
+
+- **Cool blue** = reached early / cheaply (close to the start in the algorithm's own cost).
+- **Hot red** = reached late / expensively (far out, near the edge of the explored region).
+
+Because the colour encodes reach order, the heatmap literally draws the **wavefront** of the search — the shape and direction in which it expanded. Run **Dijkstra** and you will see smooth concentric rings of colour spreading out like ripples in a pond, because it expands in every direction equally. Switch to **A\\*** and the colours stretch into a narrow tongue pointing straight at the goal — proof, in colour, that the heuristic is steering the search. Comparing two algorithms' heatmaps side by side is the fastest way to *feel* why one is more efficient than another.
+
+## The colour legend
+
+Even with the heatmap off, a fixed set of colours marks the important nodes:
+
+- **Start** — where the search begins.
+- **Goal** — the destination it is trying to reach.
+- **Settled** — a node the algorithm has finished with: its shortest distance is final and will not change. The growing field of settled nodes is the "explored region." (When the heatmap is on, these are the nodes tinted by reach order.)
+- **Frontier** — the *open set*: nodes that have been discovered but not yet settled. This is the live edge of the search, the candidates it is about to expand next.
+- **Shortest path** — once the goal is reached, the route is traced back from goal to start and drawn as a bright highlighted line. This is the answer; everything else was the work of finding it.
+
+## The four toggles
+
+- **Heatmap** — colour settled nodes by reach order (described above). Turn it off to see settled nodes in a single flat colour instead.
+- **Frontier** — show or hide the open set, the ring of discovered-but-not-yet-settled nodes. Showing it makes the "leading edge" of the search obvious; hiding it declutters the view.
+- **Edges** — draw the underlying graph edges (roads on the map, connections on a graph) beneath the search, so you can see the network the algorithm is actually walking over.
+- **Labels** — show place or node labels (street and area names on the map, node ids on graphs) for orientation.
+
+## How to use it
+
+Turn **Heatmap** on, pick **Dijkstra** and **A\\*** in the algorithm panel, and press Play. Watch Dijkstra's rings bloom outward in every direction while A\\*'s colours lance toward the goal. Then toggle **Frontier** to watch the open set advance just ahead of the settled region. That contrast — round versus directed expansion — is the whole story of informed search, told in colour.
+`,
+  },
+  {
     id: 'complexity-cheatsheet',
     category: 'Reference',
     title: 'Complexity & Capability Cheat Sheet',

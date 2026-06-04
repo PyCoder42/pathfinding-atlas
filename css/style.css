@@ -284,9 +284,35 @@ input[type="checkbox"] { accent-color: var(--accent-2); width: 15px; height: 15p
 .note { display: block; font-size: 10px; color: var(--muted-2); }
 .metrics-hint { font-size: 11px; color: var(--muted-2); margin-top: 8px; line-height: 1.5; }
 
+/* Live-metrics: horizontal scroll (so wide tables never clip) + path-quality column */
+.metrics-wrap { overflow-x: auto; max-width: 100%; }
+.metrics-wrap::-webkit-scrollbar { height: 8px; }
+.metrics-wrap::-webkit-scrollbar-thumb { background: #2a3550; border-radius: 8px; }
+.metrics-wrap .metrics { min-width: max-content; }
+.metrics td.q-best, .q-best { color: var(--good); font-weight: 700; }
+.metrics td.q-over, .q-over { color: var(--bad); font-weight: 700; }
+.metrics td.q-any, .q-any { color: var(--accent); font-weight: 700; }
+
 /* ── Explanation panel ───────────────────────────────────────────────────── */
 .explain-head { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 10px; }
 .tagline { color: var(--accent); font-size: 13px; font-style: italic; }
+
+/* Stacked, collapsible per-algorithm cards (panel shows every selected algo) */
+.explain-item { border: 1px solid var(--line-soft); border-radius: 10px; margin-bottom: 10px; background: #0f1626; overflow: hidden; }
+.explain-item > summary.explain-summary { display: flex; align-items: center; gap: 8px; padding: 9px 11px; cursor: pointer; font-weight: 700; font-size: 14px; list-style: revert; user-select: none; }
+.explain-item > summary.explain-summary:hover { background: #ffffff08; }
+.explain-item[open] > summary.explain-summary { border-bottom: 1px solid var(--line-soft); }
+.explain-summary .explain-name { flex: 1; }
+.explain-summary .badge-maps { font-size: 9px; }
+.opt-mark { font-size: 13px; font-weight: 800; }
+.opt-mark.opt-optimal { color: var(--good); }
+.opt-mark.opt-suboptimal { color: var(--bad); }
+.opt-mark.opt-anyAngle { color: var(--accent); }
+.opt-mark.opt-na { color: var(--muted-2); }
+.explain-item > .tagline, .explain-item > .purpose-line, .explain-item > .opt-note,
+.explain-item > .tabs, .explain-item > .tab-body, .explain-item > p, .explain-item > .btn { margin-left: 11px; margin-right: 11px; }
+.explain-item > .tagline { margin-top: 9px; }
+.explain-item > .tab-body { max-height: 36vh; padding-bottom: 10px; }
 .tabs { display: flex; gap: 2px; flex-wrap: wrap; border-bottom: 1px solid var(--line); margin-bottom: 10px; }
 .tab { background: transparent; border: 0; border-bottom: 2px solid transparent; color: var(--muted); padding: 7px 9px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
 .tab.active { color: var(--text); border-bottom-color: var(--accent); }

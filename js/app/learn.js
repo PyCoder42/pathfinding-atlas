@@ -62,6 +62,10 @@ function tryBox(text) {
 function renderArticle(a) {
   clear(contentEl);
   const div = el('div', { html: renderMarkdown(a.body) });
+  // Give the article's first heading a stable id == the article id, so other
+  // pages can deep-link directly to a section (e.g. #reading-the-visualization).
+  const firstHeading = div.querySelector('h1, h2, h3, h4, h5, h6');
+  if (firstHeading) firstHeading.id = a.id;
   contentEl.append(div);
   contentEl.append(tryBox('See these ideas in motion:'));
   contentEl.scrollTop = 0;
