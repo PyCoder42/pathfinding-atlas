@@ -16,6 +16,9 @@ const vis = new Visualizer(root, {
   defaultSelected: ['bfs', 'dfs', 'bidirectional-bfs'],
   defaultFocus: 'bfs',
 });
+// Curate the algorithm panel by the active domain tab (unweighted | weighted):
+// in-domain algorithms grouped by optimality, the other domain warned + collapsed.
+vis.domainFilter = 'unweighted';
 
 // The Graphs page is split into two domains (tabs). Each curates the scenarios
 // where it makes sense and the algorithms you'd actually reach for there.
@@ -58,6 +61,7 @@ const state = {
 function setDomain(d) {
   if (!DOMAINS[d]) return;
   state.domain = d;
+  vis.domainFilter = d;
   const def = DOMAINS[d].defaults;
   state.type = def.type;
   state.weighted = def.weighted;

@@ -57,7 +57,8 @@ function applyTraffic() {
   }
   clearAux(g); // metric changed → CH/CCH/ALT must re-preprocess
   vis._reset();
-  vis._status(`${f.label} applied — preprocessed methods (CH/CCH/ALT) will rebuild on next run.`);
+  vis._status(`${f.label} applied — re-preprocessing affected methods…`);
+  vis._warmPreprocess(); // rebuild CH/CCH/ALT now, before the next Play
 }
 
 function populateCityDropdowns() {
@@ -143,5 +144,12 @@ installTools(vis);
       if (startSel) startSel.value = String(shared.start);
       if (goalSel) goalSel.value = String(shared.goal);
     }
+  }
+
+  // First visit (not a shared link): auto-animate the default route over the
+  // real streets, so the page reads immediately as a live router — a real
+  // navigation demo, not a static map. Any user interaction can override it.
+  if (!shared) {
+    setTimeout(() => { if (vis.graph && !vis.playback.playing && !vis.playback.tracks.length) vis._togglePlay(); }, 1100);
   }
 })();

@@ -101,6 +101,7 @@ export class Visualizer {
             this._buildAlgoPanel(); // re-prunes na + re-syncs checkbox disabled state
             this._buildMetrics();
             this._renderExplain();
+            this._warmPreprocess();
           },
         }, name)
       );
@@ -121,6 +122,7 @@ export class Visualizer {
         if (cb.checked) this.focus = a.id;
         this._buildMetrics();
         this._renderExplain();
+        if (cb.checked && byId[a.id].preprocess) this._warmPreprocess();
       });
       this._checks[a.id] = cb;
       const badges = [];
@@ -151,9 +153,17 @@ export class Visualizer {
     // algorithms can be forced onto large graphs (with a compute-aware warning).
     p.append(this._buildSizeGuardToggle(graph));
 
+    // On the Graphs page each tab curates a domain: show that domain's
+    // algorithms grouped by optimality, then the OTHER domain's in a clearly
+    // warned, collapsed section. (domainFilter is null on the map/learn pages,
+    // so everything stays in one group there.)
+    const filter = this.domainFilter || null;
+    const inDomain = ALGORITHMS.filter((a) => !filter || a.domain === filter);
+    const outDomain = filter ? ALGORITHMS.filter((a) => a.domain !== filter) : [];
+
     // Group by whether each algorithm returns the shortest path ON THIS graph.
     const buckets = { optimal: [], sub: [], na: [] };
-    for (const a of ALGORITHMS) {
+    for (const a of inDomain) {
       const opt = optimalityFor(a.id, graph);
       (opt.status === 'na' ? buckets.na : opt.status === 'optimal' ? buckets.optimal : buckets.sub).push([a, opt]);
     }
@@ -171,6 +181,16 @@ export class Visualizer {
       const det = el('details', { class: 'algo-collapsible muted' });
       det.append(el('summary', {}, `Not available on this graph (${buckets.na.length})`));
       for (const [a, opt] of buckets.na) det.append(mkRow(a, opt));
+      p.append(det);
+    }
+    if (outDomain.length) {
+      const other = filter === 'unweighted' ? 'weighted' : 'unweighted';
+      const det = el('details', { class: 'algo-collapsible warn-domain' });
+      det.append(el('summary', {}, `⚠ Built for ${other} graphs (${outDomain.length})`));
+      det.append(el('div', { class: 'hint' }, other === 'weighted'
+        ? 'These minimise total edge cost (distance / time). On an unweighted graph they still find a path but add nothing over BFS — shown for comparison.'
+        : 'These count steps and ignore edge weights, so here they can return a higher-cost path than the weighted methods — shown for comparison.'));
+      for (const a of outDomain) det.append(mkRow(a, optimalityFor(a.id, graph)));
       p.append(det);
     }
   }
@@ -478,6 +498,7 @@ export class Visualizer {
     this._buildMetrics();
     this._renderExplain();
     this._status(label || 'Scenario loaded. Press Play.');
+    this._warmPreprocess(); // build CH/CCH/ALT structures now, not at Play time
     if (this.onScenarioChange) this.onScenarioChange();
   }
 
@@ -542,6 +563,26 @@ export class Visualizer {
 
   async _frameYield() {
     return new Promise((r) => requestAnimationFrame(() => r()));
+  }
+
+  // Preprocess any selected preprocessing-algorithms (CH/CCH/ALT) up front, so
+  // pressing Play is instant rather than stalling on a build. getAux caches per
+  // graph, so calling it again when the structure is already built is free.
+  async _warmPreprocess() {
+    if (!this.graph) return;
+    const ids = [...this.selected].filter((id) => byId[id] && byId[id].preprocess && safeFor(id, this.graph).ok);
+    if (!ids.length) return;
+    this._status(`Preprocessing ${ids.map((id) => byId[id].short).join(', ')}…`);
+    await this._frameYield();
+    let built = 0;
+    for (const id of ids) {
+      try {
+        const { ms } = getAux(byId[id], this.graph);
+        if (ms > 0.5) built++;
+        if (this.rows && this.rows[id] && this.rows[id].cells.pre) this.rows[id].cells.pre.textContent = fmtTime(ms);
+      } catch (e) { /* ignore — the run path will surface any real failure */ }
+    }
+    if (built) this._status('Preprocessing done — press Play.');
   }
 
   async _startVisualize() {
